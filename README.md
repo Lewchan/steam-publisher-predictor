@@ -60,6 +60,27 @@ Example payload:
 }
 ```
 
+## Deploy Backend
+
+This repository now includes [render.yaml](/D:/Codex-Workspace/SteamPublisher/steam-publisher-predictor/render.yaml) for a Render deployment.
+
+Expected environment variables:
+
+- `ALLOW_ORIGINS`
+  - comma-separated list of allowed frontend origins
+  - example: `https://lewchan.github.io`
+- `STEAM_WEB_API_KEY`
+  - optional
+  - enables official Steam app-list search before falling back to store search
+
+After deployment:
+
+1. Copy the backend URL
+2. Open the GitHub Pages site
+3. Paste the backend URL into the backend field
+4. Run `检查后端状态`
+5. Start analysis from the webpage
+
 ## Project Layout
 
 - `app.py`: Streamlit entrypoint
@@ -71,6 +92,7 @@ Example payload:
 - `src/steam_publisher_predictor/services/calculator.py`: CL and sales calculation
 - `docs/Project_Spec.md`: formal project rules for inputs, formulas, and scraping policy
 - `docs/Iteration_Development_Spec.md`: automatic iteration rules and execution policy
+- `render.yaml`: Render web-service deployment config
 - `tests/`: unit tests
 
 ## Current Model
@@ -87,3 +109,4 @@ Example payload:
 - The current "backend" is local Python service code inside the Streamlit app. There is no separate deployed server yet.
 - Official Steam app-list search can be enabled with `STEAM_WEB_API_KEY`.
 - SteamDB collection uses a real-browser adapter. On a fresh machine you may need to run `playwright install chromium`.
+- GitHub Pages is now a frontend shell and needs a separately deployed backend API URL.

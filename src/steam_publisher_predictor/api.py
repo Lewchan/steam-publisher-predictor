@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from steam_publisher_predictor.models import ManualInputs
+from steam_publisher_predictor.settings import get_allowed_origins
 from steam_publisher_predictor.services.calculator import calculate_sales
 from steam_publisher_predictor.services.steam_client import SteamClient, SteamClientError
 
@@ -18,17 +19,18 @@ class AnalyzeRequest(BaseModel):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Steam Publisher Predictor API", version="0.1.0")
+    allowed_origins = get_allowed_origins()
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allowed_origins,
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
     @app.get("/api/health")
-    def health() -> dict[str, str]:
-        return {"status": "ok"}
+    def health() -> dict[str, object]:
+        return {"status": "ok", "allowed_origins": allowed_origins}
 
     @app.get("/api/search")
     def search(query: str) -> dict[str, object]:

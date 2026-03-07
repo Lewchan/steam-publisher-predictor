@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: steam-publisher-predictor-api
+    runtime: python
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn steam_publisher_predictor.api:app --app-dir src --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.8
+      - key: ALLOW_ORIGINS
+        value: https://lewchan.github.io

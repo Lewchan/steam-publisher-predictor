@@ -248,6 +248,75 @@
       font-size: 14px;
     }
 
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .result-card {
+      grid-column: span 6;
+      padding: 22px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.56);
+      border: 1px solid var(--line);
+    }
+
+    .result-card.full {
+      grid-column: span 12;
+    }
+
+    .result-title {
+      font-size: 12px;
+      font-family: "IBM Plex Mono", monospace;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+      margin-bottom: 10px;
+    }
+
+    .result-headline {
+      font-size: 26px;
+      line-height: 1.15;
+      margin-bottom: 14px;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 8px 14px;
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    .kv strong {
+      color: var(--ink);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .status-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.52);
+      color: var(--ink);
+      font-size: 14px;
+    }
+
     @media (max-width: 920px) {
       .span-7, .span-5, .span-4, .span-8 {
         grid-column: span 12;
@@ -259,6 +328,16 @@
 
       .form-grid {
         grid-template-columns: 1fr;
+      }
+
+      .result-card,
+      .result-card.full {
+        grid-column: span 12;
+      }
+
+      .kv {
+        grid-template-columns: 1fr;
+        gap: 2px;
       }
     }
 
@@ -373,8 +452,35 @@
           <input class="input" id="game-query" value="Balatro" placeholder="输入游戏名、Steam 链接或 app id">
           <button class="button button-primary" id="run-analysis" type="button">开始分析</button>
         </div>
+        <div class="status-row">
+          <button class="button button-secondary" id="check-health" type="button">检查后端状态</button>
+          <div class="pill" id="health-pill">后端健康状态：未检查</div>
+        </div>
         <div class="status" id="status-text">当前状态：等待调用后端。</div>
-        <textarea class="textarea" id="result-box" readonly placeholder="分析结果会显示在这里"></textarea>
+        <section class="results-grid hidden" id="results-grid">
+          <article class="result-card">
+            <div class="result-title">游戏信息</div>
+            <div class="result-headline" id="game-name">-</div>
+            <div class="kv" id="game-summary"></div>
+          </article>
+          <article class="result-card">
+            <div class="result-title">销量结论</div>
+            <div class="result-headline" id="sales-headline">-</div>
+            <div class="kv" id="sales-summary"></div>
+          </article>
+          <article class="result-card">
+            <div class="result-title">质量拆解</div>
+            <div class="kv" id="quality-summary"></div>
+          </article>
+          <article class="result-card">
+            <div class="result-title">用户池拆解</div>
+            <div class="kv" id="pool-summary"></div>
+          </article>
+          <article class="result-card full">
+            <div class="result-title">原始返回</div>
+            <textarea class="textarea" id="result-box" readonly placeholder="分析结果会显示在这里"></textarea>
+          </article>
+        </section>
       </article>
     </section>
 
@@ -386,18 +492,38 @@
     const statusText = document.getElementById("status-text");
     const resultBox = document.getElementById("result-box");
     const runButton = document.getElementById("run-analysis");
+    const healthButton = document.getElementById("check-health");
+    const healthPill = document.getElementById("health-pill");
+    const backendUrlInput = document.getElementById("backend-url");
+    const gameQueryInput = document.getElementById("game-query");
+    const storageKey = "steam-publisher-predictor-backend-url";
+    const resultsGrid = document.getElementById("results-grid");
+    const gameName = document.getElementById("game-name");
+    const gameSummary = document.getElementById("game-summary");
+    const salesHeadline = document.getElementById("sales-headline");
+    const salesSummary = document.getElementById("sales-summary");
+    const qualitySummary = document.getElementById("quality-summary");
+    const poolSummary = document.getElementById("pool-summary");
+
+    const persistedBackendUrl = window.localStorage.getItem(storageKey);
+    if (persistedBackendUrl) {
+      backendUrlInput.value = persistedBackendUrl;
+    }
 
     async function runAnalysis() {
-      const backendUrl = document.getElementById("backend-url").value.trim().replace(/\/$/, "");
-      const query = document.getElementById("game-query").value.trim();
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      const query = gameQueryInput.value.trim();
 
       if (!backendUrl || !query) {
         statusText.textContent = "当前状态：请先填写后端地址和游戏名。";
         return;
       }
 
+      window.localStorage.setItem(storageKey, backendUrl);
+
       statusText.textContent = "当前状态：正在请求后端分析接口...";
       resultBox.value = "";
+      resultsGrid.classList.add("hidden");
       runButton.disabled = true;
 
       try {
@@ -414,15 +540,111 @@
 
         statusText.textContent = "当前状态：分析完成。";
         resultBox.value = JSON.stringify(payload, null, 2);
+        renderResults(payload);
       } catch (error) {
         statusText.textContent = `当前状态：调用失败。${error.message}`;
         resultBox.value = "";
+        resultsGrid.classList.add("hidden");
       } finally {
         runButton.disabled = false;
       }
     }
 
+    async function checkHealth() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      if (!backendUrl) {
+        healthPill.textContent = "后端健康状态：请先填写后端地址";
+        return;
+      }
+
+      window.localStorage.setItem(storageKey, backendUrl);
+      healthPill.textContent = "后端健康状态：检查中...";
+
+      try {
+        const response = await fetch(`${backendUrl}/api/health`);
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.detail || `HTTP ${response.status}`);
+        }
+        healthPill.textContent = `后端健康状态：正常 (${payload.status})`;
+      } catch (error) {
+        healthPill.textContent = `后端健康状态：失败 (${error.message})`;
+      }
+    }
+
+    function renderResults(payload) {
+      const game = payload.game || {};
+      const analysis = payload.analysis || {};
+      const quality = analysis.quality || {};
+      const pool = analysis.user_pool || {};
+
+      gameName.textContent = game.name || payload.query || "-";
+      salesHeadline.textContent = formatNumber(analysis.sales) + " 份";
+
+      fillKv(gameSummary, [
+        ["Steam App ID", game.app_id ?? "-"],
+        ["价格", game.price_usd ? `$${Number(game.price_usd).toFixed(2)}` : "N/A"],
+        ["评论数", formatNumber(game.review_count)],
+        ["评分", game.review_score ?? "N/A"],
+        ["发售日期", game.release_date || "Unknown"],
+        ["标签", Array.isArray(game.steam_tags) ? game.steam_tags.slice(0, 6).join(" / ") : "N/A"]
+      ]);
+
+      fillKv(salesSummary, [
+        ["销量预测", formatNumber(analysis.sales)],
+        ["CL", analysis.cl_score ? Number(analysis.cl_score).toFixed(2) : "0.00"],
+        ["基础转化", analysis.base_conversion ? Number(analysis.base_conversion).toFixed(4) : "0.0000"],
+        ["用户池", formatNumber(pool.estimated_user_pool)],
+        ["长尾年销量", analysis.annual_long_tail_sales ? formatNumber(analysis.annual_long_tail_sales) : "N/A"]
+      ]);
+
+      fillKv(qualitySummary, [
+        ["质量分", quality.quality_score ? Number(quality.quality_score).toFixed(2) : "0.00"],
+        ["质量置信度", quality.quality_confidence ? `${Math.round(Number(quality.quality_confidence) * 100)}%` : "0%"],
+        ["评分强度", quality.rating_strength ? Number(quality.rating_strength).toFixed(2) : "0.00"],
+        ["讨论强度", quality.discussion_strength ? Number(quality.discussion_strength).toFixed(2) : "0.00"],
+        ["持续性", quality.persistence_strength ? Number(quality.persistence_strength).toFixed(2) : "0.00"],
+        ["缺失源", Array.isArray(quality.missing_quality_sources) && quality.missing_quality_sources.length ? quality.missing_quality_sources.join(", ") : "无"]
+      ]);
+
+      const poolMatches = Array.isArray(pool.matches) && pool.matches.length
+        ? pool.matches.map(item => `${item.genre_name} (${formatNumber(item.weighted_pool)})`).join(" / ")
+        : "暂无映射";
+      fillKv(poolSummary, [
+        ["最终用户池", formatNumber(pool.estimated_user_pool)],
+        ["加权品类和", pool.weighted_genre_sum ? formatNumber(pool.weighted_genre_sum) : "0"],
+        ["重叠修正", pool.overlap_adjustment ? Number(pool.overlap_adjustment).toFixed(2) : "0.00"],
+        ["平台修正", pool.platform_fit ? Number(pool.platform_fit).toFixed(2) : "0.00"],
+        ["区域修正", pool.region_fit ? Number(pool.region_fit).toFixed(2) : "0.00"],
+        ["命中品类", poolMatches]
+      ]);
+
+      resultsGrid.classList.remove("hidden");
+    }
+
+    function fillKv(container, rows) {
+      container.innerHTML = rows
+        .map(([key, value]) => `<strong>${escapeHtml(String(key))}</strong><span>${escapeHtml(String(value))}</span>`)
+        .join("");
+    }
+
+    function formatNumber(value) {
+      const num = Number(value || 0);
+      if (!Number.isFinite(num)) return "0";
+      return new Intl.NumberFormat("zh-CN").format(Math.round(num));
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
     runButton.addEventListener("click", runAnalysis);
+    healthButton.addEventListener("click", checkHealth);
   </script>
 </body>
 </html>
