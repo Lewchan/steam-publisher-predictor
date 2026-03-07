@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Steam Publisher Predictor</title>
-  <meta name="description" content="Steam Publisher Predictor project page.">
+  <title>Steam 发行销量预测器</title>
+  <meta name="description" content="Steam 发行销量预测器项目页。">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -251,87 +251,85 @@
 <body>
   <main class="frame">
     <section class="hero">
-      <div class="eyebrow">Steam Market Intelligence</div>
-      <h1>Steam Publisher Predictor</h1>
+      <div class="eyebrow">Steam 发行研究工具</div>
+      <h1>Steam 发行销量预测器</h1>
       <p class="subhead">
-        A local prediction tool for estimating Steam game sales from public store data, benchmarked quality signals,
-        table-driven audience pools, and a capped CL strength model.
+        一个面向个人研究使用的 Steam 网页工具。它会结合公开商店数据、质量信号、用户池映射与人工判断，
+        用来辅助评估一款游戏在 Steam 上的潜在销量与发行强度。
       </p>
       <div class="hero-actions">
-        <a class="button button-primary" href="https://github.com/Lewchan/steam-publisher-predictor" target="_blank" rel="noreferrer">Open GitHub Repository</a>
-        <a class="button button-secondary" href="./README.md">Read Project Overview</a>
+        <a class="button button-primary" href="https://github.com/Lewchan/steam-publisher-predictor" target="_blank" rel="noreferrer">查看 GitHub 仓库</a>
+        <a class="button button-secondary" href="./README.md">查看项目说明</a>
       </div>
       <div class="metric-strip">
         <div class="metric">
-          <div class="metric-value">3.0</div>
-          <div class="metric-name">Current CL Cap</div>
-        </div>
-        <div class="metric">
-          <div class="metric-value">4</div>
-          <div class="metric-name">Core Layers</div>
+          <div class="metric-value">本地运行</div>
+          <div class="metric-name">当前使用方式</div>
         </div>
         <div class="metric">
           <div class="metric-value">Steam</div>
-          <div class="metric-name">Primary Public Source</div>
+          <div class="metric-name">核心数据来源</div>
         </div>
         <div class="metric">
-          <div class="metric-value">Local</div>
-          <div class="metric-name">Runtime Mode</div>
+          <div class="metric-value">持续迭代</div>
+          <div class="metric-name">当前开发状态</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">个人用</div>
+          <div class="metric-name">目标场景</div>
         </div>
       </div>
     </section>
 
     <section class="grid">
       <article class="panel span-7">
-        <div class="label">What This Builds</div>
-        <h2 class="big">A transparent scoring-and-sales calculator, not a black box.</h2>
+        <div class="label">项目定位</div>
+        <h2 class="big">一个给发行研究使用的透明分析工具，不是黑盒结论机。</h2>
         <p class="copy">
-          The project fetches Steam metadata, estimates game quality from ratings and discussion proxies, maps the
-          reachable audience through a genre-pool table, and then produces a sales estimate with visible intermediate
-          values. The target use case is analyst-grade personal decision support, not a public-facing SaaS product.
+          这个项目会抓取 Steam 公开信息，对游戏质量、关注度、用户池与发行强度进行拆解分析，
+          最终形成可解释的销量预估结果。它服务的是个人研究、发行判断与模型迭代，不追求表面上的“神准”，
+          而强调过程可复查、口径可调整。
         </p>
       </article>
 
       <article class="panel span-5">
-        <div class="label">Current Flow</div>
+        <div class="label">当前流程</div>
         <ul>
-          <li>Input a Steam game name, URL, or app id</li>
-          <li>Fetch store metadata, review summary, and Steam tags</li>
-          <li>Estimate quality score and confidence</li>
-          <li>Map tags into audience pools with overlap adjustment</li>
-          <li>Calculate CL and predicted sales</li>
+          <li>输入游戏名、Steam 链接或 app id</li>
+          <li>抓取商店元数据、评论摘要与标签</li>
+          <li>综合估算质量与热度信号</li>
+          <li>映射品类池并估算有效用户池</li>
+          <li>输出销量预估与中间拆解结果</li>
         </ul>
       </article>
 
       <article class="panel span-4">
-        <div class="label">Model Layers</div>
+        <div class="label">建设方向</div>
         <ul>
-          <li>Quality scoring from rating, proof, discussion, and persistence</li>
-          <li>User pool estimation from table-driven genre buckets</li>
-          <li>CL score from weighted linear model with hard cap</li>
-          <li>Sales output from conversion baseline times strength multiplier</li>
+          <li>继续补强质量评分与标杆校准</li>
+          <li>继续扩展用户池映射与跨品类逻辑</li>
+          <li>继续接入更多公开讨论与热度来源</li>
+          <li>继续迭代预测口径与案例对照</li>
         </ul>
       </article>
 
       <article class="panel span-8">
-        <div class="label">Core Equation</div>
-        <div class="code">sales = user_pool * exposure * intent * purchase * (1 + cl)^3
-
-cl = min(3.0, max(0, b + Σ(w * x)))</div>
+        <div class="label">页面说明</div>
+        <div class="code">这个 GitHub Pages 页面用于展示项目状态与方向。
+实际预测器仍在本地运行，后续会逐步补强网页体验、标杆校准、数据抓取与分析模块。</div>
       </article>
 
       <article class="panel span-12">
-        <div class="label">Deployment Note</div>
+        <div class="label">部署说明</div>
         <p class="copy">
-          This GitHub Pages site is a static project page. The interactive predictor still runs locally with Streamlit,
-          because GitHub Pages does not execute Python backends. The repository contains both the local app and this
-          lightweight public-facing project surface.
+          当前 GitHub Pages 站点是静态项目页，用来承载项目介绍与后续迭代展示。交互式预测器仍在本地运行，
+          因为 GitHub Pages 本身不负责执行 Python 后端。后续如果要在线使用，再单独处理运行环境与服务部署。
         </p>
       </article>
     </section>
 
     <div class="footer">
-      Static site for GitHub Pages. Interactive runtime remains local in the Streamlit application.
+      当前页面为项目展示页，交互预测功能仍在本地版本中持续迭代。
     </div>
   </main>
 </body>
