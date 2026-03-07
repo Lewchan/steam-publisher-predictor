@@ -4,6 +4,25 @@ from dataclasses import dataclass, field
 
 
 @dataclass(slots=True)
+class SteamDbStats:
+    url: str
+    current_players: int = 0
+    peak_24h: int = 0
+    all_time_peak: int = 0
+    followers: int = 0
+    reviews: int = 0
+    steamdb_rating: float = 0.0
+    positive_reviews: int = 0
+    negative_reviews: int = 0
+    daily_active_users_rank: int = 0
+    top_sellers_rank: int = 0
+    wishlist_activity_rank: int = 0
+    last_30_days_peak: int = 0
+    has_data: bool = False
+    unavailable_reason: str = ""
+
+
+@dataclass(slots=True)
 class SteamGame:
     app_id: int
     name: str
@@ -26,6 +45,7 @@ class SteamGame:
     coming_soon: bool = False
     release_date: str | None = None
     short_description: str = ""
+    steamdb: SteamDbStats | None = None
 
 
 @dataclass(slots=True)

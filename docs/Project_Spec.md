@@ -334,6 +334,7 @@ Acquisition rule:
 - prefer a dedicated scraper adapter per source
 - never hard-code SteamDB-specific assumptions into the core calculator
 - store raw fetched values separately from normalized features
+- current implementation may use a browser-backed adapter because direct HTTP requests can be blocked
 
 ### 5.3.1 Source Adapter Policy
 

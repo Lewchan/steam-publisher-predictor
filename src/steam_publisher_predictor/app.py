@@ -100,6 +100,27 @@ def main() -> None:
             )
         )
 
+    if game.steamdb:
+        st.subheader("SteamDB Signals")
+        steamdb_rows = [
+            ["Current players", f"{game.steamdb.current_players:,}" if game.steamdb.current_players else "N/A"],
+            ["24h peak", f"{game.steamdb.peak_24h:,}" if game.steamdb.peak_24h else "N/A"],
+            ["All-time peak", f"{game.steamdb.all_time_peak:,}" if game.steamdb.all_time_peak else "N/A"],
+            ["Followers", f"{game.steamdb.followers:,}" if game.steamdb.followers else "N/A"],
+            ["SteamDB rating", f"{game.steamdb.steamdb_rating:.2f}%" if game.steamdb.steamdb_rating else "N/A"],
+            ["DAU rank", f"#{game.steamdb.daily_active_users_rank}" if game.steamdb.daily_active_users_rank else "N/A"],
+            ["Top sellers rank", f"#{game.steamdb.top_sellers_rank}" if game.steamdb.top_sellers_rank else "N/A"],
+            [
+                "Wishlist rank",
+                f"#{game.steamdb.wishlist_activity_rank}" if game.steamdb.wishlist_activity_rank else "N/A",
+            ],
+            ["Last 30 days peak", f"{game.steamdb.last_30_days_peak:,}" if game.steamdb.last_30_days_peak else "N/A"],
+        ]
+        st.table(pd.DataFrame(steamdb_rows, columns=["Metric", "Value"]))
+        st.caption("SteamDB data is fetched from the public charts page through a browser-backed adapter.")
+        if game.steamdb.unavailable_reason:
+            st.warning(f"SteamDB unavailable: {game.steamdb.unavailable_reason}")
+
     bottom_left, bottom_right = st.columns(2)
     with bottom_left:
         st.subheader("CL Breakdown")
@@ -163,6 +184,7 @@ def _render_game_summary(game) -> None:
                 ["Publishers", ", ".join(game.publisher_names) or "Unknown"],
                 ["Genres", ", ".join(game.genres) or "Unknown"],
                 ["Steam tags", ", ".join(game.steam_tags[:12]) or "Unknown"],
+                ["SteamDB", game.steamdb.url if game.steamdb else "Unavailable"],
             ],
             columns=["Field", "Value"],
         )

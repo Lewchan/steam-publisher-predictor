@@ -6,7 +6,8 @@ Local web tool for estimating Steam game sales from Steam data, table-driven aud
 
 - Streamlit for the web UI
 - Python 3.11+ for scraping and prediction logic
-- `httpx` + `selectolax` for Steam data collection
+- `httpx` + `selectolax` for Steam store collection
+- `playwright` for browser-backed SteamDB collection
 - `pytest` for tests
 - GitHub Actions for CI only
 
@@ -14,7 +15,8 @@ Local web tool for estimating Steam game sales from Steam data, table-driven aud
 
 - Search Steam by game name or paste a Steam app URL
 - Fetch public store metadata, review summary, and Steam tags
-- Estimate a benchmarked quality score from reviews and discussion proxies
+- Fetch public SteamDB charts signals when available
+- Estimate a benchmarked quality score from reviews, SteamDB, and discussion proxies
 - Map Steam tags into a table-driven user pool estimate
 - Run the structured CL and sales model
 - Show the intermediate values used by the model
@@ -30,10 +32,40 @@ streamlit run app.py
 
 Open the local URL shown by Streamlit, then search for a game and adjust the formula as needed.
 
+## Backend API
+
+Run the API server:
+
+```bash
+python -m uvicorn steam_publisher_predictor.api:app --app-dir src --reload
+```
+
+Available endpoints:
+
+- `GET /api/health`
+- `GET /api/search?query=balatro`
+- `POST /api/analyze`
+
+Example payload:
+
+```json
+{
+  "query": "Balatro",
+  "manual_inputs": {
+    "art_base": 8,
+    "gameplay_depth": 8,
+    "scope": 7,
+    "narrative": 3
+  }
+}
+```
+
 ## Project Layout
 
 - `app.py`: Streamlit entrypoint
 - `src/steam_publisher_predictor/services/steam_client.py`: Steam search and fetch logic
+- `src/steam_publisher_predictor/api.py`: FastAPI backend for search and analysis
+- `src/steam_publisher_predictor/services/steamdb_client.py`: browser-backed SteamDB charts adapter
 - `src/steam_publisher_predictor/services/quality.py`: quality scoring logic
 - `src/steam_publisher_predictor/services/user_pool.py`: table-driven user pool mapping
 - `src/steam_publisher_predictor/services/calculator.py`: CL and sales calculation
@@ -53,3 +85,5 @@ Open the local URL shown by Streamlit, then search for a game and adjust the for
 - This project currently estimates sales using a structured rules model, not a trained production model.
 - Steam endpoints can change. If one source fails, the fetch layer may need to be updated.
 - The current "backend" is local Python service code inside the Streamlit app. There is no separate deployed server yet.
+- Official Steam app-list search can be enabled with `STEAM_WEB_API_KEY`.
+- SteamDB collection uses a real-browser adapter. On a fresh machine you may need to run `playwright install chromium`.

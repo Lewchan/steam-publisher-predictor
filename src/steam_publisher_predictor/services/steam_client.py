@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 import httpx
 from selectolax.parser import HTMLParser
 
-from steam_publisher_predictor.models import SteamGame
+from steam_publisher_predictor.models import SteamDbStats, SteamGame
+from steam_publisher_predictor.services.steamdb_client import SteamDbClient
 
 
 class SteamClientError(RuntimeError):
@@ -18,6 +20,8 @@ class SteamClient:
     APP_DETAILS_URL = "https://store.steampowered.com/api/appdetails"
     APP_REVIEWS_URL = "https://store.steampowered.com/appreviews/{app_id}"
     APP_PAGE_URL = "https://store.steampowered.com/app/{app_id}/"
+    APP_LIST_URL = "https://api.steampowered.com/IStoreService/GetAppList/v1/"
+    _app_list_cache: list[dict[str, object]] | None = None
 
     def __init__(self, timeout: float = 20.0) -> None:
         self._client = httpx.Client(
@@ -29,13 +33,19 @@ class SteamClient:
             follow_redirects=True,
             trust_env=False,
         )
+        self._steamdb_client = SteamDbClient()
+        self._max_attempts = 3
 
     def search(self, query: str, count: int = 10) -> list[dict[str, object]]:
         query = query.strip()
         if not query:
             return []
 
-        response = self._client.get(
+        app_list_matches = self._search_official_app_list(query, count)
+        if app_list_matches:
+            return app_list_matches
+
+        response = self._get(
             self.SEARCH_URL,
             params={"term": query, "l": "english", "cc": "US"},
         )
@@ -74,10 +84,11 @@ class SteamClient:
         details = self._fetch_details(app_id)
         review_summary = self._fetch_review_summary(app_id)
         steam_tags = self._fetch_store_tags(app_id)
-        return self._to_game(app_id, details, review_summary, steam_tags)
+        steamdb_stats = self._fetch_steamdb_stats(app_id)
+        return self._to_game(app_id, details, review_summary, steam_tags, steamdb_stats)
 
     def _fetch_details(self, app_id: int) -> dict[str, object]:
-        response = self._client.get(
+        response = self._get(
             self.APP_DETAILS_URL,
             params={"appids": app_id, "l": "english", "cc": "US"},
         )
@@ -88,7 +99,7 @@ class SteamClient:
         return payload[str(app_id)]["data"]
 
     def _fetch_review_summary(self, app_id: int) -> dict[str, object]:
-        response = self._client.get(
+        response = self._get(
             self.APP_REVIEWS_URL.format(app_id=app_id),
             params={
                 "json": 1,
@@ -108,6 +119,7 @@ class SteamClient:
         details: dict[str, object],
         review_summary: dict[str, object],
         steam_tags: list[str],
+        steamdb_stats: SteamDbStats | None,
     ) -> SteamGame:
         release_date = details.get("release_date", {}) or {}
         price_overview = details.get("price_overview", {}) or {}
@@ -135,10 +147,11 @@ class SteamClient:
             coming_soon=bool(release_date.get("coming_soon")),
             release_date=_normalize_release_date(str(release_date.get("date", ""))),
             short_description=str(details.get("short_description", "")),
+            steamdb=steamdb_stats,
         )
 
     def _fetch_store_tags(self, app_id: int) -> list[str]:
-        response = self._client.get(self.APP_PAGE_URL.format(app_id=app_id), params={"l": "english", "cc": "US"})
+        response = self._get(self.APP_PAGE_URL.format(app_id=app_id), params={"l": "english", "cc": "US"})
         response.raise_for_status()
         parser = HTMLParser(response.text)
 
@@ -148,6 +161,58 @@ class SteamClient:
             if label and label != "+" and label not in tags:
                 tags.append(label)
         return tags[:20]
+
+    def _fetch_steamdb_stats(self, app_id: int):
+        try:
+            return self._steamdb_client.fetch_stats(app_id)
+        except Exception as exc:  # noqa: BLE001
+            return SteamDbStats(
+                url=self._steamdb_client.APP_CHARTS_URL.format(app_id=app_id),
+                unavailable_reason=str(exc),
+            )
+
+    def _get(self, url: str, params: dict[str, object]) -> httpx.Response:
+        last_error: Exception | None = None
+        for _ in range(self._max_attempts):
+            try:
+                response = self._client.get(url, params=params)
+                response.raise_for_status()
+                return response
+            except (httpx.TimeoutException, httpx.RemoteProtocolError, httpx.ConnectError) as exc:
+                last_error = exc
+                continue
+
+        if last_error is not None:
+            raise SteamClientError(f"Steam request failed after retries: {last_error}") from last_error
+
+        raise SteamClientError("Steam request failed for an unknown reason.")
+
+    def _search_official_app_list(self, query: str, count: int) -> list[dict[str, object]]:
+        api_key = os.getenv("STEAM_WEB_API_KEY", "").strip()
+        if not api_key:
+            return []
+
+        if self._app_list_cache is None:
+            response = self._get(self.APP_LIST_URL, params={"key": api_key, "include_games": True})
+            payload = response.json()
+            self.__class__._app_list_cache = payload.get("response", {}).get("apps", [])
+
+        lowered_query = query.casefold()
+        matches: list[dict[str, object]] = []
+        for item in self._app_list_cache or []:
+            name = str(item.get("name", ""))
+            if lowered_query not in name.casefold():
+                continue
+            matches.append(
+                {
+                    "app_id": int(item.get("appid", 0)),
+                    "name": name,
+                    "price_usd": 0.0,
+                }
+            )
+            if len(matches) >= count:
+                break
+        return matches
 
 
 def _split_languages(raw: str) -> list[str]:

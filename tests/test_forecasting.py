@@ -1,6 +1,7 @@
-from steam_publisher_predictor.models import ManualInputs, SteamGame
+from steam_publisher_predictor.models import ManualInputs, SteamDbStats, SteamGame
 from steam_publisher_predictor.services.calculator import calculate_sales
 from steam_publisher_predictor.services.quality import estimate_quality
+from steam_publisher_predictor.services.steamdb_client import _parse_steamdb_html
 from steam_publisher_predictor.services.user_pool import estimate_user_pool
 
 
@@ -27,6 +28,22 @@ def make_game() -> SteamGame:
         coming_soon=False,
         release_date="2025-01-01",
         short_description="A compact test description.",
+        steamdb=SteamDbStats(
+            url="https://steamdb.info/app/42/charts/",
+            current_players=5400,
+            peak_24h=6200,
+            all_time_peak=25000,
+            followers=120000,
+            reviews=12345,
+            steamdb_rating=91.5,
+            positive_reviews=11800,
+            negative_reviews=545,
+            daily_active_users_rank=140,
+            top_sellers_rank=220,
+            wishlist_activity_rank=180,
+            last_30_days_peak=7800,
+            has_data=True,
+        ),
     )
 
 
@@ -76,3 +93,41 @@ def test_sales_calculation_caps_cl_at_three() -> None:
 
     assert 2.9 < result.cl_score <= 3.0
     assert result.sales > 0
+
+
+def test_parse_steamdb_html_extracts_core_metrics() -> None:
+    html = """
+    <html><body>
+    <h2>Steam charts</h2>
+    <ul>
+      <li><strong>9,188</strong> players right now</li>
+      <li><strong>9,996</strong> 24-hour peak</li>
+      <li><strong>43,905</strong> all-time peak</li>
+    </ul>
+    <h3>Store data</h3>
+    <ul>
+      <li><strong>#75</strong> in daily active users</li>
+      <li><strong>#288</strong> in top sellers</li>
+      <li><strong>#210</strong> in wishlist activity</li>
+      <li><strong>107,093</strong> followers</li>
+      <li><strong>185,377</strong> reviews</li>
+    </ul>
+    <h2>User reviews history</h2>
+    <ul>
+      <li><strong>96.67%</strong> SteamDB Rating</li>
+      <li><strong>181,509</strong> 97.9% positive reviews</li>
+      <li><strong>3,868</strong> 2.1% negative reviews</li>
+    </ul>
+    <table><tr><td>Last 30 days</td><td>13,913</td></tr></table>
+    </body></html>
+    """
+
+    stats = _parse_steamdb_html(html, "https://steamdb.info/app/42/charts/")
+
+    assert stats.current_players == 9188
+    assert stats.peak_24h == 9996
+    assert stats.all_time_peak == 43905
+    assert stats.followers == 107093
+    assert stats.steamdb_rating == 96.67
+    assert stats.daily_active_users_rank == 75
+    assert stats.last_30_days_peak == 13913

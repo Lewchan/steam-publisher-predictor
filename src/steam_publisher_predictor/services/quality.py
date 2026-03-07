@@ -11,17 +11,38 @@ GENRE_BASELINE = 6.2
 def estimate_quality(game: SteamGame, manual_inputs: ManualInputs) -> QualityBreakdown:
     review_count = max(game.review_count, 0)
     normalized_rating = _normalize_rating(game.review_score)
+    steamdb = game.steamdb
+    steamdb_rating_norm = (steamdb.steamdb_rating / 10.0) if steamdb and steamdb.steamdb_rating else 0.0
     rating_confidence = min(1.0, math.log1p(review_count) / math.log1p(50000))
+    if steamdb_rating_norm:
+        normalized_rating = normalized_rating * 0.75 + steamdb_rating_norm * 0.25
     rating_strength = normalized_rating * rating_confidence + GENRE_BASELINE * (1 - rating_confidence)
 
-    proof_strength = min(10.0, math.log10(review_count + 1) * 2.0)
-    discussion_count_signal = min(10.0, math.log10(review_count + 1) * 1.8 + min(len(game.steam_tags) * 0.15, 1.5))
+    proof_strength = min(10.0, math.log10(review_count + 1) * 1.7)
+    if steamdb and steamdb.followers:
+        proof_strength += min(2.0, math.log10(steamdb.followers + 1) * 0.25)
+    if steamdb and steamdb.all_time_peak:
+        proof_strength += min(1.2, math.log10(steamdb.all_time_peak + 1) * 0.22)
+    proof_strength = min(10.0, proof_strength)
+
+    discussion_count_signal = min(10.0, math.log10(review_count + 1) * 1.5 + min(len(game.steam_tags) * 0.15, 1.5))
+    if steamdb and steamdb.followers:
+        discussion_count_signal += min(2.0, math.log10(steamdb.followers + 1) * 0.23)
+    if steamdb and steamdb.wishlist_activity_rank:
+        discussion_count_signal += _rank_signal(steamdb.wishlist_activity_rank, best=50, worst=1000, max_points=1.3)
+    discussion_count_signal = min(10.0, discussion_count_signal)
+
     discussion_engagement_signal = min(
         10.0,
         3.0
         + min(game.metacritic_score / 100 * 2.0, 2.0)
         + min(len(game.supported_languages) * 0.12, 1.8),
     )
+    if steamdb and steamdb.current_players:
+        discussion_engagement_signal += min(1.5, math.log10(steamdb.current_players + 1) * 0.35)
+    if steamdb and steamdb.daily_active_users_rank:
+        discussion_engagement_signal += _rank_signal(steamdb.daily_active_users_rank, best=50, worst=1500, max_points=1.2)
+    discussion_engagement_signal = min(10.0, discussion_engagement_signal)
     discussion_sentiment_signal = min(
         10.0,
         max(0.0, normalized_rating * 0.75 + (manual_inputs.discussion_manual_score * 0.25)),
@@ -53,6 +74,8 @@ def estimate_quality(game: SteamGame, manual_inputs: ManualInputs) -> QualityBre
         missing_sources.append("steam_tags")
     if game.metacritic_score == 0:
         missing_sources.append("metacritic")
+    if not steamdb or not steamdb.has_data:
+        missing_sources.append("steamdb")
 
     confidence_penalty = 0.0
     if "steam_reviews" in missing_sources:
@@ -61,6 +84,8 @@ def estimate_quality(game: SteamGame, manual_inputs: ManualInputs) -> QualityBre
         confidence_penalty += 0.1
     if "metacritic" in missing_sources:
         confidence_penalty += 0.05
+    if "steamdb" in missing_sources:
+        confidence_penalty += 0.15
     quality_confidence = max(0.0, min(1.0, rating_confidence + 0.25 - confidence_penalty))
 
     return QualityBreakdown(
@@ -95,4 +120,19 @@ def _estimate_persistence(game: SteamGame, manual_score: float) -> float:
 
     reviews_per_month = game.review_count / max(days_since_release / 30.0, 1.0)
     objective_signal = min(10.0, math.log10(reviews_per_month + 1) * 3.0 + 2.0)
+    steamdb = game.steamdb
+    if steamdb and steamdb.last_30_days_peak and steamdb.all_time_peak:
+        retention_ratio = min(1.0, steamdb.last_30_days_peak / max(1, steamdb.all_time_peak))
+        objective_signal += retention_ratio * 2.0
     return min(10.0, max(0.0, objective_signal * 0.6 + manual_score * 0.4))
+
+
+def _rank_signal(rank: int, best: int, worst: int, max_points: float) -> float:
+    if rank <= 0:
+        return 0.0
+    if rank <= best:
+        return max_points
+    if rank >= worst:
+        return 0.0
+    span = worst - best
+    return max_points * (1 - (rank - best) / span)
