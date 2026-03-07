@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Steam Publisher Predictor</title>
+  <meta name="description" content="Steam Publisher Predictor project page.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f3efe5;
+      --paper: rgba(255, 252, 245, 0.82);
+      --ink: #102218;
+      --muted: #4d6556;
+      --line: rgba(16, 34, 24, 0.12);
+      --accent: #1f7a52;
+      --accent-2: #d55b2d;
+      --shadow: 0 20px 60px rgba(38, 53, 42, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(213, 91, 45, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(31, 122, 82, 0.18), transparent 32%),
+        linear-gradient(180deg, #f8f3e8 0%, #efe7d8 100%);
+      min-height: 100vh;
+    }
+
+    .frame {
+      width: min(1120px, calc(100% - 32px));
+      margin: 24px auto 48px;
+    }
+
+    .hero,
+    .panel {
+      background: var(--paper);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 36px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -70px;
+      top: -70px;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(31, 122, 82, 0.24), transparent 65%);
+    }
+
+    .eyebrow {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: rgba(31, 122, 82, 0.1);
+      margin-bottom: 18px;
+    }
+
+    h1, h2, h3, p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(40px, 7vw, 74px);
+      line-height: 0.96;
+      max-width: 820px;
+      margin-bottom: 16px;
+    }
+
+    .subhead {
+      font-size: 18px;
+      line-height: 1.6;
+      color: var(--muted);
+      max-width: 760px;
+      margin-bottom: 28px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 18px;
+      border-radius: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+    }
+
+    .button-primary {
+      color: #fffdf8;
+      background: linear-gradient(135deg, var(--accent), #245e45);
+      box-shadow: 0 12px 28px rgba(31, 122, 82, 0.24);
+    }
+
+    .button-secondary {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.46);
+      border: 1px solid var(--line);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .panel {
+      padding: 24px;
+    }
+
+    .span-7 { grid-column: span 7; }
+    .span-5 { grid-column: span 5; }
+    .span-4 { grid-column: span 4; }
+    .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
+
+    .label {
+      font-size: 12px;
+      font-family: "IBM Plex Mono", monospace;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+      margin-bottom: 12px;
+    }
+
+    .big {
+      font-size: 28px;
+      line-height: 1.15;
+      margin-bottom: 12px;
+    }
+
+    .copy {
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .metric-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .metric {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.5);
+      border: 1px solid var(--line);
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .metric-name {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    ul {
+      margin: 12px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .code {
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: #152118;
+      color: #d6f9e1;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      overflow-x: auto;
+    }
+
+    .footer {
+      margin-top: 18px;
+      padding: 18px 4px 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 920px) {
+      .span-7, .span-5, .span-4, .span-8 {
+        grid-column: span 12;
+      }
+
+      .metric-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      .frame {
+        width: min(100% - 20px, 1120px);
+        margin-top: 10px;
+      }
+
+      .hero, .panel {
+        border-radius: 22px;
+      }
+
+      .hero {
+        padding: 24px;
+      }
+
+      .metric-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="frame">
+    <section class="hero">
+      <div class="eyebrow">Steam Market Intelligence</div>
+      <h1>Steam Publisher Predictor</h1>
+      <p class="subhead">
+        A local prediction tool for estimating Steam game sales from public store data, benchmarked quality signals,
+        table-driven audience pools, and a capped CL strength model.
+      </p>
+      <div class="hero-actions">
+        <a class="button button-primary" href="https://github.com/Lewchan/steam-publisher-predictor" target="_blank" rel="noreferrer">Open GitHub Repository</a>
+        <a class="button button-secondary" href="./README.md">Read Project Overview</a>
+      </div>
+      <div class="metric-strip">
+        <div class="metric">
+          <div class="metric-value">3.0</div>
+          <div class="metric-name">Current CL Cap</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">4</div>
+          <div class="metric-name">Core Layers</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">Steam</div>
+          <div class="metric-name">Primary Public Source</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">Local</div>
+          <div class="metric-name">Runtime Mode</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="panel span-7">
+        <div class="label">What This Builds</div>
+        <h2 class="big">A transparent scoring-and-sales calculator, not a black box.</h2>
+        <p class="copy">
+          The project fetches Steam metadata, estimates game quality from ratings and discussion proxies, maps the
+          reachable audience through a genre-pool table, and then produces a sales estimate with visible intermediate
+          values. The target use case is analyst-grade personal decision support, not a public-facing SaaS product.
+        </p>
+      </article>
+
+      <article class="panel span-5">
+        <div class="label">Current Flow</div>
+        <ul>
+          <li>Input a Steam game name, URL, or app id</li>
+          <li>Fetch store metadata, review summary, and Steam tags</li>
+          <li>Estimate quality score and confidence</li>
+          <li>Map tags into audience pools with overlap adjustment</li>
+          <li>Calculate CL and predicted sales</li>
+        </ul>
+      </article>
+
+      <article class="panel span-4">
+        <div class="label">Model Layers</div>
+        <ul>
+          <li>Quality scoring from rating, proof, discussion, and persistence</li>
+          <li>User pool estimation from table-driven genre buckets</li>
+          <li>CL score from weighted linear model with hard cap</li>
+          <li>Sales output from conversion baseline times strength multiplier</li>
+        </ul>
+      </article>
+
+      <article class="panel span-8">
+        <div class="label">Core Equation</div>
+        <div class="code">sales = user_pool * exposure * intent * purchase * (1 + cl)^3
+
+cl = min(3.0, max(0, b + Σ(w * x)))</div>
+      </article>
+
+      <article class="panel span-12">
+        <div class="label">Deployment Note</div>
+        <p class="copy">
+          This GitHub Pages site is a static project page. The interactive predictor still runs locally with Streamlit,
+          because GitHub Pages does not execute Python backends. The repository contains both the local app and this
+          lightweight public-facing project surface.
+        </p>
+      </article>
+    </section>
+
+    <div class="footer">
+      Static site for GitHub Pages. Interactive runtime remains local in the Streamlit application.
+    </div>
+  </main>
+</body>
+</html>
