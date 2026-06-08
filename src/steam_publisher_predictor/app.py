@@ -4,8 +4,11 @@ import pandas as pd
 import streamlit as st
 
 from steam_publisher_predictor.models import ManualInputs
-from steam_publisher_predictor.services.calculator import calculate_sales
+from steam_publisher_predictor.services import calculator
+from steam_publisher_predictor.services import benchmark as benchmark_service
+from steam_publisher_predictor.services import scenarios as scenario_service
 from steam_publisher_predictor.services.steam_client import SteamClient, SteamClientError
+from steam_publisher_predictor.services.storage import record as storage
 
 
 def main() -> None:
@@ -42,7 +45,7 @@ def main() -> None:
     with right:
         manual_inputs = _render_manual_inputs(game.price_usd)
 
-    result = calculate_sales(game, manual_inputs)
+    result = calculator.calculate_sales(game, manual_inputs)
 
     metric_columns = st.columns(4)
     metric_columns[0].metric("Estimated sales", f"{result.sales:,.0f}")
@@ -50,9 +53,42 @@ def main() -> None:
     metric_columns[2].metric("Quality score", f"{result.quality.quality_score:.2f} / 10")
     metric_columns[3].metric("User pool", f"{result.user_pool.estimated_user_pool:,}")
 
+    # Save record button
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        if st.button("💾 Save Prediction", type="primary", use_container_width=True):
+            try:
+                filepath = storage.save_prediction_record(result, query.strip())
+                st.success(f"Saved to: `{filepath.name}`")
+                st.session_state["save_message"] = f"Saved to: {filepath.name}"
+            except Exception as exc:
+                st.error(f"Save failed: {exc}")
+                st.session_state["save_message"] = f"Save failed: {exc}"
+
+    if st.session_state.get("save_message"):
+        st.info(st.session_state["save_message"])
+        st.session_state["save_message"] = ""
+
     top_left, top_right = st.columns(2)
     with top_left:
         st.subheader("Quality Breakdown")
+        # Quality confidence warning
+        quality_confidence = result.quality.quality_confidence
+        confidence_pct = quality_confidence * 100
+        missing_sources = result.quality.missing_quality_sources
+        if confidence_pct < 40 or len(missing_sources) >= 3:
+            st.warning(
+                f"⚠️ **质量评估置信度低 ({confidence_pct:.0f}%)** — 部分数据源缺失，建议人工校准。"
+                + (f" 缺失源：{', '.join(missing_sources)}" if missing_sources else "")
+            )
+        elif confidence_pct < 70:
+            st.info(
+                f"🔸 **质量评估置信度中等 ({confidence_pct:.0f}%)** — 基于部分公开数据，"
+                + (f"缺失源：{', '.join(missing_sources)}" if missing_sources else "结果仅供参考，建议人工校准。")
+            )
+        else:
+            st.success(f"✅ **质量评估置信度高 ({confidence_pct:.0f}%)** — 基于充足的数据源，结果可信度较高。")
+
         quality_rows = [
             ["Rating strength", f"{result.quality.rating_strength:.2f}"],
             ["Rating confidence", f"{result.quality.rating_confidence:.2%}"],
@@ -164,6 +200,184 @@ def main() -> None:
             - This build favors transparent intermediate values over false precision.
             """
         )
+
+    # Scenario Comparison section
+    st.markdown("---")
+    st.subheader("⚖️ Scenario Comparison")
+    st.caption("Compare Conservative, Baseline, and Optimistic scenarios side by side.")
+
+    if "scenarios_data" not in st.session_state:
+        st.session_state["scenarios_data"] = {}
+    if "selected_scenarios" not in st.session_state:
+        st.session_state["selected_scenarios"] = ["Conservative", "Baseline", "Optimistic"]
+
+    col_sc1, col_sc2 = st.columns([3, 1])
+    with col_sc2:
+        preset_names = scenario_service.get_preset_names()
+        new_scenario_name = st.text_input(
+            "Custom scenario name",
+            placeholder="e.g. MyScenario",
+            key="new_scenario_name",
+        )
+        if st.button("Add Custom Scenario", use_container_width=True):
+            name = new_scenario_name.strip()
+            if name and name not in preset_names and name not in st.session_state.get("saved_scenario_names", []):
+                st.session_state.setdefault("saved_scenario_names", []).append(name)
+                preset_names.append(name)
+                st.success(f"Custom scenario '{name}' added.")
+                st.rerun()
+
+    selected = st.multiselect(
+        "Select scenarios to compare",
+        options=preset_names,
+        default=st.session_state["selected_scenarios"],
+        key="selected_scenarios_multi",
+    )
+    if selected != st.session_state["selected_scenarios"]:
+        st.session_state["selected_scenarios"] = selected
+
+    if selected:
+        scenario_results = {}
+        for sname in selected:
+            scenario = scenario_service.load_preset(sname)
+            sr = scenario_service.run_scenario(scenario, game)
+            scenario_results[sname] = sr
+
+        if scenario_results:
+            comp_cols = st.columns(len(scenario_results))
+            for idx, (sname, sr) in enumerate(scenario_results.items()):
+                with comp_cols[idx]:
+                    st.markdown(f"### {sname}")
+                    risk_colors = {"Conservative": "🟡", "Baseline": "🟢", "Optimistic": "🔴"}
+                    emoji = risk_colors.get(sname, "🔵")
+                    st.metric(
+                        f"{emoji} Estimated Sales",
+                        f"{sr.result.sales:,.0f}",
+                    )
+                    st.metric("CL Score", f"{sr.result.cl_score:.3f}")
+                    st.metric("Quality", f"{sr.result.quality.quality_score:.2f}")
+                    st.metric("User Pool", f"{sr.result.user_pool.estimated_user_pool:,}")
+
+                    if sr.result.annual_long_tail_sales:
+                        st.metric("Annual Long Tail", f"{sr.result.annual_long_tail_sales:,.0f}")
+
+                    st.divider()
+
+                    # Per-scenario manual input sliders
+                    st.subheader(f"Edit {sname} Inputs")
+                    s = sr.result.manual_inputs
+                    s.art_base = st.number_input("Art base", min_value=1.0, max_value=10.0, value=s.art_base, step=0.5, key=f"{sname}_art")
+                    s.gameplay_depth = st.number_input("Gameplay depth", min_value=1.0, max_value=10.0, value=s.gameplay_depth, step=0.5, key=f"{sname}_gameplay")
+                    s.scope = st.number_input("Scope", min_value=1.0, max_value=10.0, value=s.scope, step=0.5, key=f"{sname}_scope")
+                    s.narrative = st.number_input("Narrative", min_value=1.0, max_value=10.0, value=s.narrative, step=0.5, key=f"{sname}_narrative")
+                    s.ip_factor = st.slider("IP factor", 0.0, 1.0, s.ip_factor, 0.05, key=f"{sname}_ip")
+                    s.influencer_factor = st.slider("Influencer factor", 0.0, 1.0, s.influencer_factor, 0.05, key=f"{sname}_infl")
+                    s.exposure_base = st.slider("Exposure base", 0.0, 1.0, s.exposure_base, 0.01, key=f"{sname}_expo")
+                    s.intent_base = st.slider("Intent base", 0.0, 1.0, s.intent_base, 0.01, key=f"{sname}_intent")
+                    s.purchase_base = st.slider("Purchase base", 0.0, 1.0, s.purchase_base, 0.01, key=f"{sname}_pur")
+
+        # Summary table
+        st.markdown("---")
+        st.subheader("Scenario Summary Table")
+        summary_rows = []
+        for sname, sr in scenario_results.items():
+            summary_rows.append({
+                "Scenario": sname,
+                "Sales": f"{sr.result.sales:,.0f}",
+                "CL Score": f"{sr.result.cl_score:.3f}",
+                "CL Base": f"{sr.result.cl_base:.4f}",
+                "Showmanship": f"{sr.result.showmanship_effect:.3f}",
+                "Brand Factor": f"{sr.result.brand_factor:.3f}",
+                "Quality": f"{sr.result.quality.quality_score:.2f}",
+                "Quality Conf": f"{sr.result.quality.quality_confidence:.0%}",
+                "User Pool": f"{sr.result.user_pool.estimated_user_pool:,}",
+                "Exposure": f"{sr.result.manual_inputs.exposure_base:.2f}",
+                "Intent": f"{sr.result.manual_inputs.intent_base:.2f}",
+                "Purchase": f"{sr.result.manual_inputs.purchase_base:.2f}",
+            })
+        st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
+
+        # Saved scenarios list
+        saved = scenario_service.list_saved_scenarios()
+        if saved:
+            st.markdown("---")
+            st.subheader("Saved Scenarios")
+            col_del1, col_del2 = st.columns([4, 1])
+            with col_del1:
+                st.info(f"Saved scenarios: {', '.join(saved)}")
+            with col_del2:
+                del_name = st.selectbox("Delete", saved, key="delete_scenario_select")
+                if st.button("Delete", use_container_width=True):
+                    scenario_service.delete_scenario(del_name)
+                    st.rerun()
+
+    # Saved Records section
+    st.markdown("---")
+    st.subheader("Saved Predictions")
+    records = storage.list_records(limit=20)
+    if records:
+        record_rows = [
+            {
+                "Time": r.get("created_at", "")[:19],
+                "Game": r.get("game_name") or r.get("query", "Unknown"),
+                "Sales": f"{r.get('sales', 0):,.0f}" if r.get("sales") else "N/A",
+                "ID": r.get("record_id", "")[:8],
+            }
+            for r in records
+        ]
+        st.dataframe(pd.DataFrame(record_rows), use_container_width=True, hide_index=True)
+        st.caption(f"Showing {len(records)} most recent records.")
+    else:
+        st.info("No saved predictions yet. Run an analysis and click 'Save Prediction' to persist it.")
+
+    # Benchmark Comparison section
+    st.markdown("---")
+    st.subheader("📊 Benchmark Comparison")
+    st.caption("Compare current analysis against reference games with known sales figures.")
+
+    # Load benchmark data
+    benchmark_file = benchmark_service.load_benchmark_file()
+    if benchmark_file is None:
+        benchmark_service.ensure_benchmark_exists()
+        benchmark_file = benchmark_service.load_benchmark_file()
+
+    if benchmark_file and benchmark_file.records:
+        comparison_rows = benchmark_service.compare_vs_benchmarks(result, benchmark_file.records)
+
+        diff_rows = [
+            {
+                "Benchmark": r.benchmark_game,
+                "Quality": f"{r.quality_score:.1f}",
+                "Quality Δ": f"{r.quality_diff:+.2f}",
+                "CL": f"{r.cl_score:.2f}",
+                "CL Δ": f"{r.cl_diff:+.2f}",
+                "User Pool": f"{r.user_pool:,}",
+                "Pool Δ": f"{r.pool_diff:,.0f}",
+                "Sales": f"{r.sales:,}",
+                "Sales Δ": f"{r.sales_diff:,.0f}",
+                "SAO Δ": f"{r.sao_diff:,.0f}" if r.sao_diff is not None else "N/A",
+            }
+            for r in comparison_rows
+        ]
+
+        st.dataframe(pd.DataFrame(diff_rows), use_container_width=True, hide_index=True)
+
+        st.markdown("**Reference data sources:**")
+        ref_rows = [
+            ["Game", "Sales", "Quality", "SAO Anchor", "Source"],
+        ]
+        for rec in benchmark_file.records:
+            ref_rows.append([
+                rec.game_name,
+                f"{rec.sales:,}",
+                f"{rec.quality_score:.1f}",
+                f"{rec.sao_anchor:,}" if rec.sao_anchor else "N/A",
+                rec.source_label,
+            ])
+        st.table(pd.DataFrame(ref_rows, columns=["Game", "Sales", "Quality", "SAO Anchor", "Source"]))
+        st.caption("⚠ SAO_Anchor is a virtual ceiling (SAO = Sales as Of date), not a real sample. Differences are computed as: Current Result − Benchmark Value.")
+    else:
+        st.info("No benchmark data available. Benchmark seed records will be created automatically on the next run.")
 
 
 def _render_game_summary(game) -> None:

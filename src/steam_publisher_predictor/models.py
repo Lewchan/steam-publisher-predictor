@@ -131,3 +131,12 @@ class SalesBreakdown:
     base_conversion: float
     sales: float
     annual_long_tail_sales: float | None
+
+
+@dataclass(slots=True)
+class PredictionResult:
+    """Result from formula-based sales prediction."""
+    game: SteamGame
+    formula: str
+    features: dict[str, float]
+    estimated_sales: float

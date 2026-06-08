@@ -1,3 +1,4 @@
+<!-- Web_Front 2026/06/08 迭代完成: 校准控制集成后端API + 新增校准面板localStorage持久化 + 修复HTML结构 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -359,6 +360,64 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* Quality confidence warning styles */
+    .warning-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      border-radius: 16px;
+      margin-top: 14px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .warning-banner.low-confidence {
+      background: rgba(213, 91, 45, 0.1);
+      border: 1px solid rgba(213, 91, 45, 0.3);
+      color: var(--accent-2);
+    }
+
+    .warning-banner.medium-confidence {
+      background: rgba(218, 169, 45, 0.1);
+      border: 1px solid rgba(218, 169, 45, 0.3);
+      color: #8a6d14;
+    }
+
+    .warning-banner.high-confidence {
+      display: none;
+    }
+
+    .warning-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .warning-content {
+      flex: 1;
+    }
+
+    .warning-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .warning-detail {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .missing-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.4);
+      font-size: 12px;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
@@ -374,6 +433,9 @@
         <a class="button button-primary" href="https://github.com/Lewchan/steam-publisher-predictor" target="_blank" rel="noreferrer">查看 GitHub 仓库</a>
         <a class="button button-secondary" href="./README.md">查看项目说明</a>
       </div>
+      <p class="copy" style="margin-top:12px;font-size:14px;">
+        💡 提示：下方调试面板支持直接请求后端 API，也可点击「场景对比」运行保守/基准/乐观三方案。
+      </p>
       <div class="metric-strip">
         <div class="metric">
           <div class="metric-value">本地运行</div>
@@ -413,6 +475,7 @@
           <li>综合估算质量与热度信号</li>
           <li>映射品类池并估算有效用户池</li>
           <li>输出销量预估与中间拆解结果</li>
+          <li>支持保守/基准/乐观场景对比</li>
         </ul>
       </article>
 
@@ -428,8 +491,11 @@
 
       <article class="panel span-8">
         <div class="label">页面说明</div>
-        <div class="code">这个 GitHub Pages 页面用于展示项目状态与方向。
-实际预测器仍在本地运行，后续会逐步补强网页体验、标杆校准、数据抓取与分析模块。</div>
+        <p class="copy">
+          这个 GitHub Pages 页面作为前端调试壳，可以直接请求已部署的后端 API（`/api/analyze`）进行实时分析。
+          交互式预测器完整功能仍在 Streamlit 本地版本中持续迭代，包含完整的 Slider 表单、质量置信度警告、
+          SteamDB 数据展示与基准对比页面。
+        </p>
       </article>
 
       <article class="panel span-12">
@@ -454,9 +520,109 @@
         </div>
         <div class="status-row">
           <button class="button button-secondary" id="check-health" type="button">检查后端状态</button>
+          <button class="button button-secondary" id="run-scenarios" type="button">场景对比</button>
+          <button class="button button-secondary" id="benchmark-compare" type="button">标杆对比</button>
+          <button class="button button-secondary" id="save-record" type="button">保存记录</button>
+          <button class="button button-secondary" id="load-records" type="button">查看历史</button>
+          <button class="button button-secondary" id="export-report" type="button">导出数据</button>
           <div class="pill" id="health-pill">后端健康状态：未检查</div>
         </div>
         <div class="status" id="status-text">当前状态：等待调用后端。</div>
+        <div class="status" id="manual-saved-msg" style="color:var(--accent);display:none;">手动参数已缓存到 localStorage。</div>
+        <section class="panel result-card" id="manual-inputs-panel" style="display:none;">
+          <div class="result-title">手动参数编辑</div>
+          <p class="copy" style="margin-bottom:14px;">
+            以下参数将随下一次「开始分析」请求发送到后端。修改后参数会自动缓存到浏览器本地，
+            下次使用时自动加载。你也可以点击「用当前分析结果加载」自动填充上次分析的手动参数。
+          </p>
+          <div id="manual-inputs-container" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;"></div>
+          <div class="status-row" style="margin-top:16px;">
+            <button class="button button-secondary" id="load-params-from-analysis" type="button">用当前分析结果加载</button>
+            <button class="button button-secondary" id="reset-params" type="button">重置为默认值</button>
+            <button class="button button-primary" id="toggle-manual-panel" type="button">收起面板</button>
+          </div>
+        </section>
+        <button class="button button-secondary" id="toggle-manual-panel-btn" type="button" style="margin-top:12px;">📝 手动参数编辑</button>
+        <section class="panel result-card" id="calibration-panel" style="display:none;">
+          <div class="result-title">校准控制</div>
+          <div id="backend-warning" class="warning-banner low-confidence" style="display:none;margin-bottom:16px;">
+            <span class="warning-icon">⚠️</span>
+            <div class="warning-content">
+              <div class="warning-title">后端校准参数警告</div>
+              <div class="warning-detail" id="backend-warning-text"></div>
+            </div>
+          </div>
+          <p class="copy" style="margin-bottom:14px;">
+            调整模型权重和上限参数。修改后参数会自动保存到后端和本地。
+            打开面板时会自动从后端加载最新校准参数。
+          </p>
+          <div style="margin-bottom:16px;">
+            <div class="label" style="margin-bottom:8px;">质量评分权重</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+              <div>
+                <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">Rating 权重</label>
+                <input class="input" type="number" id="cal-rating-weight" value="0.45" min="0" max="1" step="0.05" style="font-size:16px;">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">Proof 权重</label>
+                <input class="input" type="number" id="cal-proof-weight" value="0.20" min="0" max="1" step="0.05" style="font-size:16px;">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">Discussion 权重</label>
+                <input class="input" type="number" id="cal-discussion-weight" value="0.20" min="0" max="1" step="0.05" style="font-size:16px;">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">Persistence 权重</label>
+                <input class="input" type="number" id="cal-persistence-weight" value="0.15" min="0" max="1" step="0.05" style="font-size:16px;">
+              </div>
+            </div>
+            <div style="margin-top:8px;font-size:12px;color:var(--muted);">权重总和: <span id="weight-sum-display">1.00</span></div>
+          </div>
+          <div style="margin-bottom:16px;">
+            <div class="label" style="margin-bottom:8px;">上限参数</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+              <div>
+                <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">Showmanship 上限</label>
+                <input class="input" type="number" id="cal-showmanship-cap" value="0.6" min="0.1" max="1.0" step="0.05" style="font-size:16px;">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">CL 上限</label>
+                <input class="input" type="number" id="cal-cl-cap" value="3.0" min="1.0" max="5.0" step="0.1" style="font-size:16px;">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">CL k1</label>
+                <input class="input" type="number" id="cal-cl-k1" value="2" min="0" max="5" step="0.1" style="font-size:16px;">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">CL k2</label>
+                <input class="input" type="number" id="cal-cl-k2" value="2" min="0" max="5" step="0.1" style="font-size:16px;">
+              </div>
+            </div>
+          </div>
+          <div style="margin-bottom:16px;">
+            <div class="label" style="margin-bottom:8px;">置信度阈值</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+              <div>
+                <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">低置信度阈值</label>
+                <input class="input" type="number" id="cal-low-confidence" value="40" min="0" max="99" step="1" style="font-size:16px;">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">中等置信度阈值</label>
+                <input class="input" type="number" id="cal-medium-confidence" value="70" min="10" max="99" step="1" style="font-size:16px;">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">缺失源阈值</label>
+                <input class="input" type="number" id="cal-missing-source-threshold" value="3" min="1" max="10" step="1" style="font-size:16px;">
+              </div>
+            </div>
+          </div>
+          <div class="status-row">
+            <button class="button button-secondary" id="save-calibration" type="button">💾 保存校准</button>
+            <button class="button button-secondary" id="reset-calibration" type="button">重置校准参数</button>
+            <button class="button button-primary" id="toggle-calibration-panel" type="button">收起面板</button>
+          </div>
+        </section>
+        <button class="button button-secondary" id="toggle-calibration-panel-btn" type="button" style="margin-top:12px;">⚙️ 校准控制</button>
         <section class="results-grid hidden" id="results-grid">
           <article class="result-card">
             <div class="result-title">游戏信息</div>
@@ -480,8 +646,52 @@
             <div class="result-title">原始返回</div>
             <textarea class="textarea" id="result-box" readonly placeholder="分析结果会显示在这里"></textarea>
           </article>
-        </section>
+        <!-- Quality confidence warning banner -->
+        <article class="panel result-card full" id="quality-warning" style="display: none;">
+          <div class="result-title">质量评估提示</div>
+          <div id="warning-content"></div>
+        </article>
       </article>
+
+      <section class="results-grid hidden" id="scenario-grid">
+        <article class="result-card">
+          <div class="result-title">保守方案</div>
+          <div class="result-headline" id="scenario-conservative-sales">-</div>
+          <div class="kv" id="scenario-conservative-kv"></div>
+        </article>
+        <article class="result-card">
+          <div class="result-title">基准方案</div>
+          <div class="result-headline" id="scenario-baseline-sales">-</div>
+          <div class="kv" id="scenario-baseline-kv"></div>
+        </article>
+        <article class="result-card">
+          <div class="result-title">乐观方案</div>
+          <div class="result-headline" id="scenario-optimistic-sales">-</div>
+          <div class="kv" id="scenario-optimistic-kv"></div>
+        </article>
+      </section>
+
+      <section class="results-grid hidden" id="record-list-grid">
+        <article class="result-card full">
+          <div class="result-title">历史记录</div>
+          <div id="record-list" style="max-height: 400px; overflow-y: auto;"></div>
+        </article>
+      </section>
+
+      <section class="results-grid hidden" id="benchmark-grid">
+        <article class="result-card full">
+          <div class="result-title">标杆对比</div>
+          <p style="color:var(--muted);font-size:14px;margin-bottom:14px;">
+            将当前分析结果与已知销售数据进行对比，了解当前估值的相对水平。
+            SAO_Anchor 为虚拟上限参考值，非实际市场样本。差异 = 当前结果 − 标杆值。
+          </p>
+          <div id="benchmark-comparison-table" style="overflow-x:auto;"></div>
+        </article>
+        <article class="result-card full">
+          <div class="result-title">标杆参考数据</div>
+          <div id="benchmark-reference-table" style="overflow-x:auto;"></div>
+        </article>
+      </section>
     </section>
 
     <div class="footer">
@@ -493,17 +703,203 @@
     const resultBox = document.getElementById("result-box");
     const runButton = document.getElementById("run-analysis");
     const healthButton = document.getElementById("check-health");
+    const scenarioButton = document.getElementById("run-scenarios");
+    const benchmarkCompareButton = document.getElementById("benchmark-compare");
+    const saveRecordButton = document.getElementById("save-record");
+    const loadRecordsButton = document.getElementById("load-records");
+    const exportReportButton = document.getElementById("export-report");
     const healthPill = document.getElementById("health-pill");
     const backendUrlInput = document.getElementById("backend-url");
     const gameQueryInput = document.getElementById("game-query");
     const storageKey = "steam-publisher-predictor-backend-url";
     const resultsGrid = document.getElementById("results-grid");
+    const scenarioGrid = document.getElementById("scenario-grid");
+    const recordListGrid = document.getElementById("record-list-grid");
+    const benchmarkGrid = document.getElementById("benchmark-grid");
+    const benchmarkComparisonTable = document.getElementById("benchmark-comparison-table");
+    const benchmarkReferenceTable = document.getElementById("benchmark-reference-table");
     const gameName = document.getElementById("game-name");
     const gameSummary = document.getElementById("game-summary");
     const salesHeadline = document.getElementById("sales-headline");
     const salesSummary = document.getElementById("sales-summary");
     const qualitySummary = document.getElementById("quality-summary");
     const poolSummary = document.getElementById("pool-summary");
+    const qualityWarning = document.getElementById("quality-warning");
+    const warningContent = document.getElementById("warning-content");
+
+    let lastPayload = null;
+    let lastAnalysisData = null;
+
+    // ── Manual Inputs Panel ────────────────────────────────────────────
+    const manualInputsPanel = document.getElementById("manual-inputs-panel");
+    const manualInputsContainer = document.getElementById("manual-inputs-container");
+    const toggleManualPanelBtn = document.getElementById("toggle-manual-panel-btn");
+    const toggleManualPanel = document.getElementById("toggle-manual-panel");
+    const loadParamsFromAnalysis = document.getElementById("load-params-from-analysis");
+    const resetParamsBtn = document.getElementById("reset-params");
+    const manualSavedMsg = document.getElementById("manual-saved-msg");
+    const manualInputsStorageKey = "steam-publisher-predictor-manual-inputs";
+
+    // Field definitions: [id, label, type, default, min, max, step]
+    const MANUAL_FIELDS = [
+      ["art_base", "Art base", "number", 5.0, 1.0, 10.0, 0.5],
+      ["gameplay_depth", "Gameplay depth", "number", 5.0, 1.0, 10.0, 0.5],
+      ["scope", "Scope", "number", 5.0, 1.0, 10.0, 0.5],
+      ["narrative", "Narrative", "number", 5.0, 1.0, 10.0, 0.5],
+      ["ip_factor", "IP factor", "number", 0.2, 0.0, 1.0, 0.05],
+      ["influencer_factor", "Influencer factor", "number", 0.2, 0.0, 1.0, 0.05],
+      ["exposure_base", "Exposure base", "number", 0.2, 0.0, 1.0, 0.01],
+      ["intent_base", "Intent base", "number", 0.25, 0.0, 1.0, 0.01],
+      ["purchase_base", "Purchase base", "number", 0.3, 0.0, 1.0, 0.01],
+      ["platform_fit", "Platform fit", "number", 1.0, 0.5, 1.2, 0.05],
+      ["region_fit", "Region fit", "number", 1.0, 0.5, 1.2, 0.05],
+      ["price_fit", "Price fit", "number", 1.0, 0.5, 1.2, 0.05],
+      ["overlap_adjustment", "Overlap adjustment", "number", 0.75, 0.55, 0.95, 0.01],
+      ["discussion_manual_score", "Discussion manual score", "number", 5.0, 0.0, 10.0, 0.5],
+      ["persistence_manual_score", "Persistence manual score", "number", 5.0, 0.0, 10.0, 0.5],
+      ["analyst_adjustment", "Analyst adjustment", "number", 0.0, -1.5, 1.5, 0.1],
+      ["peak_dau", "Peak DAU", "number", 0, 0, 99999999, 1000],
+      ["median_line", "Median line", "number", 0.0, 0.0, 1.0, 0.01],
+      ["user_pool_override", "User pool override", "number", 0, 0, 99999999, 100000],
+    ];
+
+    const TOGGLE_FIELDS = [
+      ["sexual_or_gore", "Sexual or gore"],
+      ["extreme_novelty", "Extreme novelty"],
+      ["real_time_juice", "Real-time juice"],
+      ["systemic_interlock", "Systemic interlock"],
+      ["complex_system", "Complex system"],
+      ["linear_experience", "Linear experience"],
+    ];
+
+    const DEFAULT_INPUTS = {
+      art_base: 5.0, gameplay_depth: 5.0, scope: 5.0, narrative: 5.0,
+      ip_factor: 0.2, influencer_factor: 0.2,
+      exposure_base: 0.2, intent_base: 0.25, purchase_base: 0.3,
+      platform_fit: 1.0, region_fit: 1.0, price_fit: 1.0,
+      overlap_adjustment: 0.75,
+      discussion_manual_score: 5.0, persistence_manual_score: 5.0, analyst_adjustment: 0.0,
+      peak_dau: 0, median_line: 0.0, user_pool_override: 0,
+      sexual_or_gore: false, extreme_novelty: false, real_time_juice: false,
+      systemic_interlock: false, complex_system: false, linear_experience: false,
+    };
+
+    let currentManualInputs = { ...DEFAULT_INPUTS };
+
+    function buildManualInputsUI() {
+      manualInputsContainer.innerHTML = "";
+      // Number inputs
+      MANUAL_FIELDS.forEach(([id, label, _type, _default, min, max, step]) => {
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = `
+          <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">${escapeHtml(label)}</label>
+          <input class="input" type="number" id="mi-${id}" value="${currentManualInputs[id]}" min="${min}" max="${max}" step="${step}" style="font-size:16px;">
+        `;
+        const input = wrapper.querySelector("input");
+        input.addEventListener("input", () => {
+          currentManualInputs[id] = parseFloat(input.value) || 0;
+        });
+        manualInputsContainer.appendChild(wrapper);
+      });
+      // Toggle inputs
+      TOGGLE_FIELDS.forEach(([id, label]) => {
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = `
+          <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.4);border:1px solid var(--line);">
+            <input type="checkbox" id="mi-${id}" ${currentManualInputs[id] ? "checked" : ""} style="width:18px;height:18px;accent-color:var(--accent);">
+            <span>${escapeHtml(label)}</span>
+          </label>
+        `;
+        const checkbox = wrapper.querySelector("input");
+        checkbox.addEventListener("change", () => {
+          currentManualInputs[id] = checkbox.checked;
+        });
+        manualInputsContainer.appendChild(wrapper);
+      });
+    }
+
+    function loadManualInputsFromStorage() {
+      try {
+        const stored = localStorage.getItem(manualInputsStorageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          Object.keys(parsed).forEach(k => {
+            if (k in currentManualInputs) currentManualInputs[k] = parsed[k];
+          });
+        }
+      } catch (_) {}
+    }
+
+    function saveManualInputsToStorage() {
+      localStorage.setItem(manualInputsStorageKey, JSON.stringify(currentManualInputs));
+    }
+
+    function getManualInputsPayload() {
+      // Sync all inputs from DOM to currentManualInputs
+      MANUAL_FIELDS.forEach(([id, _label, _type, _default, min, max, step]) => {
+        const el = document.getElementById(`mi-${id}`);
+        if (el) currentManualInputs[id] = parseFloat(el.value) || 0;
+      });
+      TOGGLE_FIELDS.forEach(([id, _label]) => {
+        const el = document.getElementById(`mi-${id}`);
+        if (el) currentManualInputs[id] = el.checked;
+      });
+      // Return subset that the backend understands
+      const keys = Object.keys(DEFAULT_INPUTS);
+      const payload = {};
+      keys.forEach(k => { if (currentManualInputs[k] !== DEFAULT_INPUTS[k]) payload[k] = currentManualInputs[k]; });
+      return payload;
+    }
+
+    function populateManualInputsFromPayload(payload) {
+      if (payload) {
+        Object.keys(payload).forEach(k => {
+          if (k in currentManualInputs) currentManualInputs[k] = payload[k];
+        });
+      }
+      buildManualInputsUI();
+      saveManualInputsToStorage();
+    }
+
+    function resetManualInputs() {
+      currentManualInputs = { ...DEFAULT_INPUTS };
+      localStorage.removeItem(manualInputsStorageKey);
+      buildManualInputsUI();
+    }
+
+    toggleManualPanelBtn.addEventListener("click", () => {
+      if (manualInputsPanel.style.display === "none" || !manualInputsPanel.style.display) {
+        manualInputsPanel.style.display = "block";
+        toggleManualPanelBtn.style.display = "none";
+        loadManualInputsFromStorage();
+        buildManualInputsUI();
+      } else {
+        manualInputsPanel.style.display = "none";
+        toggleManualPanelBtn.style.display = "inline-flex";
+      }
+    });
+
+    toggleManualPanel.addEventListener("click", () => {
+      manualInputsPanel.style.display = "none";
+      toggleManualPanelBtn.style.display = "inline-flex";
+      saveManualInputsToStorage();
+    });
+
+    loadParamsFromAnalysis.addEventListener("click", () => {
+      if (!lastPayload || !lastPayload.manual_inputs) {
+        statusText.textContent = "当前状态：无可用手动参数（后端未返回）。";
+        return;
+      }
+      populateManualInputsFromPayload(lastPayload.manual_inputs);
+      statusText.textContent = "当前状态：手动参数已从上一次分析结果加载。";
+    });
+
+    resetParamsBtn.addEventListener("click", () => {
+      resetManualInputs();
+      statusText.textContent = "当前状态：手动参数已重置为默认值。";
+    });
+
+    // ── End Manual Inputs Panel ────────────────────────────────────────
 
     const persistedBackendUrl = window.localStorage.getItem(storageKey);
     if (persistedBackendUrl) {
@@ -521,6 +917,12 @@
 
       window.localStorage.setItem(storageKey, backendUrl);
 
+      const manualPayload = getManualInputsPayload();
+      const requestBody = { query };
+      if (Object.keys(manualPayload).length > 0) {
+        requestBody.manual_inputs = manualPayload;
+      }
+
       statusText.textContent = "当前状态：正在请求后端分析接口...";
       resultBox.value = "";
       resultsGrid.classList.add("hidden");
@@ -530,7 +932,7 @@
         const response = await fetch(`${backendUrl}/api/analyze`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query })
+          body: JSON.stringify(requestBody)
         });
 
         const payload = await response.json();
@@ -541,6 +943,7 @@
         statusText.textContent = "当前状态：分析完成。";
         resultBox.value = JSON.stringify(payload, null, 2);
         renderResults(payload);
+        lastAnalysisData = payload.analysis || {};
       } catch (error) {
         statusText.textContent = `当前状态：调用失败。${error.message}`;
         resultBox.value = "";
@@ -620,6 +1023,65 @@
       ]);
 
       resultsGrid.classList.remove("hidden");
+
+      // Quality confidence warning logic
+      renderQualityWarning(quality);
+    }
+
+    function renderQualityWarning(quality) {
+      if (!qualityWarning || !warningContent) return;
+
+      const confidence = quality.quality_confidence || 0;
+      const missingSources = quality.missing_quality_sources || [];
+      const confidencePct = Math.round(confidence * 100);
+
+      qualityWarning.style.display = "block";
+
+      if (confidencePct < 40 || missingSources.length >= 3) {
+        // Low confidence warning
+        qualityWarning.className = "panel result-card full";
+        let html = `<div class="warning-banner low-confidence">
+          <span class="warning-icon">⚠️</span>
+          <div class="warning-content">
+            <div class="warning-title">质量评估置信度低 (${confidencePct}%)</div>
+            <div class="warning-detail">当前数据不足以支撑高质量评分。建议手动补充缺失的信息源。`;
+        if (missingSources.length > 0) {
+          html += `<div style="margin-top:8px;">缺失的数据源：<span style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">`;
+          missingSources.forEach(src => {
+            html += `<span class="missing-tag">${escapeHtml(src)}</span>`;
+          });
+          html += `</span></div>`;
+        }
+        html += `</div></div>`;
+        warningContent.innerHTML = html;
+      } else if (confidencePct < 70) {
+        // Medium confidence warning
+        qualityWarning.className = "panel result-card full";
+        let html = `<div class="warning-banner medium-confidence">
+          <span class="warning-icon">⚠️</span>
+          <div class="warning-content">
+            <div class="warning-title">质量评估置信度中等 (${confidencePct}%)</div>
+            <div class="warning-detail">当前分析基于部分公开数据。${missingSources.length > 0 ? `建议补充以下信息源以提高准确度：` : '结果仅供参考，建议人工校准。'}`;
+        if (missingSources.length > 0 && missingSources.length < 3) {
+          html += `<div style="margin-top:8px;">缺失的数据源：<span style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">`;
+          missingSources.forEach(src => {
+            html += `<span class="missing-tag">${escapeHtml(src)}</span>`;
+          });
+          html += `</span></div>`;
+        }
+        html += `</div></div>`;
+        warningContent.innerHTML = html;
+      } else {
+        // High confidence - show a subtle positive indicator
+        qualityWarning.className = "panel result-card full";
+        warningContent.innerHTML = `<div class="warning-banner high-confidence" style="display:block; background:rgba(31,122,82,0.1); border:1px solid rgba(31,122,82,0.3); color:var(--accent);">
+          <span class="warning-icon">✅</span>
+          <div class="warning-content">
+            <div class="warning-title">质量评估置信度高 (${confidencePct}%)</div>
+            <div class="warning-detail">当前分析基于充足的数据源，结果可信度较高。</div>
+          </div>
+        </div>`;
+      }
     }
 
     function fillKv(container, rows) {
@@ -643,8 +1105,681 @@
         .replaceAll("'", "&#39;");
     }
 
+    async function runScenario(scenarioName) {
+      const scenarioMods = {
+        conservative: { exposure_base: 0.15, intent_base: 0.15, purchase_base: 0.2 },
+        baseline: { exposure_base: 0.2, intent_base: 0.25, purchase_base: 0.3 },
+        optimistic: { exposure_base: 0.3, intent_base: 0.35, purchase_base: 0.4 },
+      };
+
+      const mods = scenarioMods[scenarioName];
+      if (!mods) return;
+
+      const payload = {
+        query: gameQueryInput.value.trim(),
+        manual_inputs: {
+          ...getManualInputsPayload(),
+          exposure_base: mods.exposure_base,
+          intent_base: mods.intent_base,
+          purchase_base: mods.purchase_base,
+        },
+      };
+
+      statusText.textContent = `当前状态：正在运行${scenarioName === 'conservative' ? '保守' : scenarioName === 'baseline' ? '基准' : '乐观'}方案...`;
+
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      try {
+        const response = await fetch(`${backendUrl}/api/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
+        renderScenario(scenarioName, result);
+      } catch (error) {
+        statusText.textContent = `当前状态：${scenarioName}方案调用失败。${error.message}`;
+      }
+    }
+
+    function renderScenario(scenarioName, result) {
+      const analysis = result.analysis || {};
+      const pool = result.analysis.user_pool || {};
+
+      const headlineEl = document.getElementById(`scenario-${scenarioName}-sales`);
+      const kvEl = document.getElementById(`scenario-${scenarioName}-kv`);
+      if (!headlineEl || !kvEl) return;
+
+      headlineEl.textContent = formatNumber(analysis.sales) + " 份";
+      fillKv(kvEl, [
+        ["CL", analysis.cl_score ? Number(analysis.cl_score).toFixed(2) : "0.00"],
+        ["基础转化", analysis.base_conversion ? Number(analysis.base_conversion).toFixed(4) : "0.0000"],
+        ["用户池", formatNumber(pool.estimated_user_pool)],
+        ["销量预测", formatNumber(analysis.sales)],
+      ]);
+    }
+
+    async function runScenarioComparison() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      const query = gameQueryInput.value.trim();
+      if (!backendUrl || !query) {
+        statusText.textContent = "当前状态：请先填写后端地址和游戏名。";
+        return;
+      }
+
+      window.localStorage.setItem(storageKey, backendUrl);
+      scenarioGrid.classList.remove("hidden");
+      recordListGrid.classList.add("hidden");
+      benchmarkGrid.classList.add("hidden");
+
+      statusText.textContent = "当前状态：正在并行运行三个场景方案...";
+
+      await runScenario("conservative");
+      await runScenario("baseline");
+      await runScenario("optimistic");
+
+      statusText.textContent = "当前状态：场景对比完成。";
+    }
+
+    // ── Benchmark Comparison ────────────────────────────────────────────
+
+    async function loadBenchmarkData() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      if (!backendUrl) {
+        statusText.textContent = "当前状态：请先填写后端地址。";
+        return null;
+      }
+
+      window.localStorage.setItem(storageKey, backendUrl);
+
+      try {
+        const response = await fetch(`${backendUrl}/api/benchmarks`);
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.detail || `HTTP ${response.status}`);
+        }
+        return payload;
+      } catch (error) {
+        throw new Error(`标杆数据加载失败：${error.message}`);
+      }
+    }
+
+    async function runBenchmarkCompare() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      const query = gameQueryInput.value.trim();
+      if (!backendUrl || !query) {
+        statusText.textContent = "当前状态：请先填写后端地址和游戏名。";
+        return;
+      }
+
+      window.localStorage.setItem(storageKey, backendUrl);
+
+      // If we don't have analysis data yet, run analysis first
+      if (!lastAnalysisData) {
+        statusText.textContent = "当前状态：正在先运行分析...";
+        try {
+          await runAnalysis();
+          if (!lastAnalysisData) {
+            statusText.textContent = "当前状态：分析未返回数据，无法进行标杆对比。";
+            return;
+          }
+        } catch (error) {
+          statusText.textContent = `当前状态：标杆对比失败。${error.message}`;
+          return;
+        }
+      }
+
+      statusText.textContent = "当前状态：正在加载标杆数据并对比...";
+      scenarioGrid.classList.add("hidden");
+      recordListGrid.classList.add("hidden");
+
+      try {
+        // Step 1: Load benchmark data
+        const benchmarkData = await loadBenchmarkData();
+        const benchmarks = benchmarkData.records || [];
+        benchmarkReferenceTable.innerHTML = "";
+
+        if (benchmarks.length === 0) {
+          benchmarkReferenceTable.innerHTML = '<p style="color:var(--muted);">暂无标杆数据。请先在 Streamlit 本地运行一次分析以初始化标杆数据。</p>';
+          benchmarkGrid.classList.remove("hidden");
+          return;
+        }
+
+        // Render benchmark reference table
+        let refHtml = '<table style="width:100%;border-collapse:collapse;font-size:14px;">';
+        refHtml += '<thead><tr style="border-bottom:2px solid var(--line);">';
+        refHtml += '<th style="text-align:left;padding:8px;">游戏</th>';
+        refHtml += '<th style="text-align:left;padding:8px;">品类</th>';
+        refHtml += '<th style="text-align:right;padding:8px;">质量分</th>';
+        refHtml += '<th style="text-align:right;padding:8px;">CL</th>';
+        refHtml += '<th style="text-align:right;padding:8px;">用户池</th>';
+        refHtml += '<th style="text-align:right;padding:8px;">销量</th>';
+        refHtml += '<th style="text-align:right;padding:8px;">SAO 上限</th>';
+        refHtml += '<th style="text-align:left;padding:8px;">来源</th>';
+        refHtml += '</tr></thead><tbody>';
+
+        benchmarks.forEach(b => {
+          refHtml += '<tr style="border-bottom:1px solid var(--line);">';
+          refHtml += `<td style="padding:8px;font-weight:600;">${escapeHtml(b.game_name)}</td>`;
+          refHtml += `<td style="padding:8px;color:var(--muted);font-size:13px;">${escapeHtml(b.genre_cluster || "")}</td>`;
+          refHtml += `<td style="padding:8px;text-align:right;">${Number(b.quality_score).toFixed(1)}</td>`;
+          refHtml += `<td style="padding:8px;text-align:right;">${Number(b.cl_score).toFixed(2)}</td>`;
+          refHtml += `<td style="padding:8px;text-align:right;">${formatNumber(b.user_pool)}</td>`;
+          refHtml += `<td style="padding:8px;text-align:right;">${formatNumber(b.sales)}</td>`;
+          refHtml += `<td style="padding:8px;text-align:right;">${b.sao_anchor ? formatNumber(b.sao_anchor) : "N/A"}</td>`;
+          refHtml += `<td style="padding:8px;color:var(--muted);font-size:13px;">${escapeHtml(b.source_label || "")}</td>`;
+          refHtml += '</tr>';
+        });
+        refHtml += '</tbody></table>';
+        benchmarkReferenceTable.innerHTML = refHtml;
+
+        // Step 2: Run comparison against benchmarks
+        const response = await fetch(`${backendUrl}/api/benchmark_compare`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ analysis: lastAnalysisData }),
+        });
+
+        const comparePayload = await response.json();
+        if (!response.ok) {
+          throw new Error(comparePayload.detail || `HTTP ${response.status}`);
+        }
+
+        const comparison = comparePayload.comparison || [];
+        benchmarkComparisonTable.innerHTML = "";
+
+        if (comparison.length === 0) {
+          benchmarkComparisonTable.innerHTML = '<p style="color:var(--muted);">暂无对比数据。</p>';
+        } else {
+          // Determine current game name from last payload
+          const currentName = (lastPayload?.game?.name) || query || "当前分析";
+
+          let compHtml = '<table style="width:100%;border-collapse:collapse;font-size:14px;">';
+          compHtml += '<thead><tr style="border-bottom:2px solid var(--line);">';
+          compHtml += '<th style="text-align:left;padding:8px;">标杆</th>';
+          compHtml += '<th style="text-align:right;padding:8px;">质量 Δ</th>';
+          compHtml += '<th style="text-align:right;padding:8px;">CL Δ</th>';
+          compHtml += '<th style="text-align:right;padding:8px;">用户池 Δ</th>';
+          compHtml += '<th style="text-align:right;padding:8px;">销量 Δ</th>';
+          compHtml += '<th style="text-align:right;padding:8px;">SAO 差值</th>';
+          compHtml += '</tr></thead><tbody>';
+
+          comparison.forEach(c => {
+            const diffClass = (val) => {
+              const v = Number(val) || 0;
+              if (v > 0) return 'style="color:var(--accent);"';
+              if (v < 0) return 'style="color:var(--accent-2);"';
+              return '';
+            };
+            compHtml += '<tr style="border-bottom:1px solid var(--line);">';
+            compHtml += `<td style="padding:8px;font-weight:600;">${escapeHtml(c.benchmark_game)}</td>`;
+            compHtml += `<td style="padding:8px;text-align:right;" ${diffClass(c.quality_diff)}>${(Number(c.quality_diff) || 0) >= 0 ? '+' : ''}${Number(c.quality_diff).toFixed(2)}</td>`;
+            compHtml += `<td style="padding:8px;text-align:right;" ${diffClass(c.cl_diff)}>${(Number(c.cl_diff) || 0) >= 0 ? '+' : ''}${Number(c.cl_diff).toFixed(2)}</td>`;
+            compHtml += `<td style="padding:8px;text-align:right;" ${diffClass(c.pool_diff)}>${(Number(c.pool_diff) || 0) >= 0 ? '+' : ''}${formatNumber(c.pool_diff)}</td>`;
+            compHtml += `<td style="padding:8px;text-align:right;" ${diffClass(c.sales_diff)}>${(Number(c.sales_diff) || 0) >= 0 ? '+' : ''}${formatNumber(c.sales_diff)}</td>`;
+            compHtml += `<td style="padding:8px;text-align:right;" ${c.sao_diff !== null && diffClass(c.sao_diff)}>${c.sao_diff !== null ? ((Number(c.sao_diff) || 0) >= 0 ? '+' : '') + formatNumber(c.sao_diff) : 'N/A'}</td>`;
+            compHtml += '</tr>';
+          });
+          compHtml += '</tbody></table>';
+
+          // Add summary card
+          const totalSalesDiff = comparison.reduce((sum, c) => sum + (Number(c.sales_diff) || 0), 0);
+          compHtml += `<p style="margin-top:14px;font-size:14px;color:var(--muted);">
+            当前游戏：<strong>${escapeHtml(currentName)}</strong> — 销量预测：<strong>${formatNumber(lastAnalysisData?.sales)}</strong> 份
+            ${comparison.length > 0 ? ` — 对比 ${comparison.length} 个标杆` : ''}
+          </p>`;
+
+          benchmarkComparisonTable.innerHTML = compHtml;
+        }
+
+        benchmarkGrid.classList.remove("hidden");
+        statusText.textContent = "当前状态：标杆对比完成。";
+      } catch (error) {
+        statusText.textContent = `当前状态：标杆对比失败。${error.message}`;
+        benchmarkGrid.classList.add("hidden");
+      }
+    }
+
+    async function saveCurrentRecord() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      const query = gameQueryInput.value.trim();
+      if (!backendUrl || !query) {
+        statusText.textContent = "当前状态：请先填写后端地址和游戏名。";
+        return;
+      }
+
+      statusText.textContent = "当前状态：正在保存记录...";
+      window.localStorage.setItem(storageKey, backendUrl);
+
+      const manualPayload = getManualInputsPayload();
+      const requestBody = { query, save_record: true };
+      if (Object.keys(manualPayload).length > 0) {
+        requestBody.manual_inputs = manualPayload;
+      }
+
+      try {
+        const response = await fetch(`${backendUrl}/api/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
+
+        statusText.textContent = "当前状态：记录已保存。";
+        if (result.saved_record_path) {
+          statusText.textContent = `当前状态：记录已保存 (${result.saved_record_path})。`;
+        }
+        if (result.save_error) {
+          statusText.textContent = `当前状态：保存失败 (${result.save_error})。`;
+        }
+      } catch (error) {
+        statusText.textContent = `当前状态：保存失败。${error.message}`;
+      }
+    }
+
+    async function loadRecords() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      if (!backendUrl) {
+        statusText.textContent = "当前状态：请先填写后端地址。";
+        return;
+      }
+
+      window.localStorage.setItem(storageKey, backendUrl);
+      scenarioGrid.classList.add("hidden");
+      recordListGrid.classList.add("hidden");
+      benchmarkGrid.classList.add("hidden");
+
+      try {
+        const response = await fetch(`${backendUrl}/api/records?limit=50`);
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
+
+        const records = payload.records || [];
+        const listEl = document.getElementById("record-list");
+        if (!listEl) return;
+
+        if (records.length === 0) {
+          listEl.innerHTML = '<p style="color: var(--muted);">暂无历史记录。</p>';
+          return;
+        }
+
+        let html = '';
+        records.forEach((r, i) => {
+          const gameName = r.game_name || r.query || "Unknown";
+          const sales = r.sales ? formatNumber(r.sales) : "N/A";
+          const time = (r.created_at || "").substring(0, 19);
+          html += `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:rgba(255,255,255,0.4);">
+              <div>
+                <div style="font-weight:700;margin-bottom:4px;">${escapeHtml(gameName)}</div>
+                <div style="font-size:13px;color:var(--muted);">${escapeHtml(time)} | 销量: ${sales} 份</div>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="button button-secondary" style="min-height:32px;padding:0 10px;font-size:13px;" onclick="loadSingleRecord('${r.record_id.replace(/'/g, "\\'")}', '${backendUrl.replace(/'/g, "\\'")}')">加载</button>
+              </div>
+            </div>
+          `;
+        });
+        listEl.innerHTML = html;
+      } catch (error) {
+        statusText.textContent = `当前状态：加载失败。${error.message}`;
+      }
+    }
+
+    async function loadSingleRecord(recordId, backendUrl) {
+      try {
+        const response = await fetch(`${backendUrl}/api/record/load`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ record_id: recordId }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || `HTTP ${response.status}`);
+
+        lastPayload = result.record;
+        gameQueryInput.value = result.record.query || "";
+        renderResults(lastPayload);
+        statusText.textContent = "当前状态：记录已加载。";
+        recordListGrid.classList.add("hidden");
+        resultsGrid.classList.remove("hidden");
+      } catch (error) {
+        statusText.textContent = `当前状态：加载失败。${error.message}`;
+      }
+    }
+
+    // ── Export Report ────────────────────────────────────────────────────
+
+    function exportJSON(data) {
+      const exportData = { ...data };
+      const mi = getManualInputsPayload();
+      if (Object.keys(mi).length > 0) {
+        exportData.manual_inputs = mi;
+      }
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+      downloadBlob(blob, `steam-predict-${data.game?.name || "report"}-${timestampSuffix()}.json`);
+    }
+
+    function exportCSV() {
+      if (!lastPayload) {
+        statusText.textContent = "当前状态：请先运行分析以获取数据。";
+        return;
+      }
+
+      const game = lastPayload.game || {};
+      const analysis = lastPayload.analysis || {};
+      const quality = analysis.quality || {};
+      const pool = analysis.user_pool || {};
+
+      // Build flat rows for CSV
+      const rows = [];
+      // Section: Game Info
+      rows.push(["section", "key", "value"]);
+      rows.push(["游戏信息", "游戏名称", game.name || ""]);
+      rows.push(["游戏信息", "Steam App ID", game.app_id ?? ""]);
+      rows.push(["游戏信息", "价格(USD)", game.price_usd ?? ""]);
+      rows.push(["游戏信息", "评论数", game.review_count ?? ""]);
+      rows.push(["游戏信息", "评分", game.review_score ?? ""]);
+      rows.push(["游戏信息", "发售日期", game.release_date || ""]);
+      rows.push(["游戏信息", "标签", Array.isArray(game.steam_tags) ? game.steam_tags.join(" / ") : ""]);
+      rows.push(["游戏信息", "类别", Array.isArray(game.categories) ? game.categories.join(" / ") : ""]);
+      rows.push(["游戏信息", "开发者", Array.isArray(game.developer_names) ? game.developer_names.join(" / ") : ""]);
+      rows.push(["游戏信息", "发行商", Array.isArray(game.publisher_names) ? game.publisher_names.join(" / ") : ""]);
+
+      // Section: Quality
+      rows.push(["质量评估", "质量分", quality.quality_score ?? ""]);
+      rows.push(["质量评估", "质量置信度", quality.quality_confidence ? `${Math.round(quality.quality_confidence * 100)}%` : ""]);
+      rows.push(["质量评估", "评分强度", quality.rating_strength ?? ""]);
+      rows.push(["质量评估", "讨论强度", quality.discussion_strength ?? ""]);
+      rows.push(["质量评估", "持续性", quality.persistence_strength ?? ""]);
+      rows.push(["质量评估", "缺失数据源", Array.isArray(quality.missing_quality_sources) ? quality.missing_quality_sources.join(" / ") : ""]);
+
+      // Section: User Pool
+      rows.push(["用户池", "最终用户池", pool.estimated_user_pool ?? ""]);
+      rows.push(["用户池", "加权品类和", pool.weighted_genre_sum ?? ""]);
+      rows.push(["用户池", "重叠修正", pool.overlap_adjustment ?? ""]);
+      rows.push(["用户池", "平台修正", pool.platform_fit ?? ""]);
+      rows.push(["用户池", "区域修正", pool.region_fit ?? ""]);
+      const poolMatches = Array.isArray(pool.matches) && pool.matches.length
+        ? pool.matches.map(item => `${item.genre_name} (${item.weighted_pool})`).join(" / ")
+        : "";
+      rows.push(["用户池", "命中品类", poolMatches]);
+
+      // Section: Sales
+      rows.push(["销量预测", "销量预测(份)", analysis.sales ?? ""]);
+      rows.push(["销量预测", "CL 得分", analysis.cl_score ?? ""]);
+      rows.push(["销量预测", "基础转化", analysis.base_conversion ?? ""]);
+      rows.push(["销量预测", "长尾年销量", analysis.annual_long_tail_sales ?? ""]);
+
+      // Section: Manual Inputs
+      const mi = getManualInputsPayload();
+      if (Object.keys(mi).length > 0) {
+        rows.push(["手动参数", "---", "---"]);
+        Object.entries(mi).forEach(([k, v]) => {
+          rows.push(["手动参数", k, String(v)]);
+        });
+      }
+
+      const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const bom = "\uFEFF";
+      const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8" });
+      downloadBlob(blob, `steam-predict-${game.name || "report"}-${timestampSuffix()}.csv`);
+      statusText.textContent = "当前状态：CSV 导出完成。";
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      statusText.textContent = `当前状态：已导出 ${filename}。`;
+    }
+
+    function timestampSuffix() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+    }
+
     runButton.addEventListener("click", runAnalysis);
     healthButton.addEventListener("click", checkHealth);
+    scenarioButton.addEventListener("click", runScenarioComparison);
+    benchmarkCompareButton.addEventListener("click", runBenchmarkCompare);
+    saveRecordButton.addEventListener("click", saveCurrentRecord);
+    loadRecordsButton.addEventListener("click", loadRecords);
+    exportReportButton.addEventListener("click", () => {
+      if (!lastPayload) {
+        statusText.textContent = "当前状态：请先运行分析以获取数据。";
+        return;
+      }
+      // Show export format options via a temporary confirm
+      const format = confirm("点击「确定」导出 JSON，点击「取消」导出 CSV。");
+      if (format) {
+        exportJSON(lastPayload);
+      } else {
+        exportCSV();
+      }
+    });
+
+    // ── Calibration Controls ────────────────────────────────────────────
+
+    const calibrationPanel = document.getElementById("calibration-panel");
+    const toggleCalibrationBtn = document.getElementById("toggle-calibration-panel-btn");
+    const toggleCalibrationPanel = document.getElementById("toggle-calibration-panel");
+    const saveCalibrationBtn = document.getElementById("save-calibration");
+    const resetCalibrationBtn = document.getElementById("reset-calibration");
+    const weightSumDisplay = document.getElementById("weight-sum-display");
+    const calibrationStorageKey = "steam-publisher-predictor-calibration";
+
+    const DEFAULT_CALIBRATION = {
+      rating_weight: 0.45,
+      proof_weight: 0.20,
+      discussion_weight: 0.20,
+      persistence_weight: 0.15,
+      showmanship_cap: 0.6,
+      cl_cap: 3.0,
+      cl_k1: 2.0,
+      cl_k2: 2.0,
+      low_confidence_threshold: 40,
+      medium_confidence_threshold: 70,
+      missing_source_threshold: 3,
+    };
+
+    let currentCalibration = { ...DEFAULT_CALIBRATION };
+
+    function buildCalibrationUI() {
+      document.getElementById("cal-rating-weight").value = currentCalibration.rating_weight;
+      document.getElementById("cal-proof-weight").value = currentCalibration.proof_weight;
+      document.getElementById("cal-discussion-weight").value = currentCalibration.discussion_weight;
+      document.getElementById("cal-persistence-weight").value = currentCalibration.persistence_weight;
+      document.getElementById("cal-showmanship-cap").value = currentCalibration.showmanship_cap;
+      document.getElementById("cal-cl-cap").value = currentCalibration.cl_cap;
+      document.getElementById("cal-cl-k1").value = currentCalibration.cl_k1;
+      document.getElementById("cal-cl-k2").value = currentCalibration.cl_k2;
+      document.getElementById("cal-low-confidence").value = currentCalibration.low_confidence_threshold;
+      document.getElementById("cal-medium-confidence").value = currentCalibration.medium_confidence_threshold;
+      document.getElementById("cal-missing-source-threshold").value = currentCalibration.missing_source_threshold;
+      updateWeightSum();
+    }
+
+    function updateWeightSum() {
+      const sum =
+        (parseFloat(document.getElementById("cal-rating-weight").value) || 0) +
+        (parseFloat(document.getElementById("cal-proof-weight").value) || 0) +
+        (parseFloat(document.getElementById("cal-discussion-weight").value) || 0) +
+        (parseFloat(document.getElementById("cal-persistence-weight").value) || 0);
+      if (weightSumDisplay) {
+        weightSumDisplay.textContent = sum.toFixed(2);
+        if (Math.abs(sum - 1.0) > 0.01) {
+          weightSumDisplay.style.color = "var(--accent-2)";
+          weightSumDisplay.title = `权重总和应为 1.00 (当前 ${sum.toFixed(2)})`;
+        } else {
+          weightSumDisplay.style.color = "var(--accent)";
+          weightSumDisplay.title = "权重已平衡";
+        }
+      }
+    }
+
+    function loadCalibrationFromStorage() {
+      try {
+        const stored = localStorage.getItem(calibrationStorageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          Object.keys(parsed).forEach(k => {
+            if (k in currentCalibration) currentCalibration[k] = parsed[k];
+          });
+        }
+      } catch (_) {}
+    }
+
+    function getCalibrationFromDOM() {
+      const cfg = {};
+      const pairs = [
+        ["cal-rating-weight", "rating_weight"],
+        ["cal-proof-weight", "proof_weight"],
+        ["cal-discussion-weight", "discussion_weight"],
+        ["cal-persistence-weight", "persistence_weight"],
+        ["cal-showmanship-cap", "showmanship_cap"],
+        ["cal-cl-cap", "cl_cap"],
+        ["cal-cl-k1", "cl_k1"],
+        ["cal-cl-k2", "cl_k2"],
+        ["cal-low-confidence", "low_confidence_threshold"],
+        ["cal-medium-confidence", "medium_confidence_threshold"],
+        ["cal-missing-source-threshold", "missing_source_threshold"],
+      ];
+      pairs.forEach(([domId, key]) => {
+        const el = document.getElementById(domId);
+        if (el) cfg[key] = parseFloat(el.value) || 0;
+      });
+      return cfg;
+    }
+
+    function loadCalibrationFromStorage() {
+      try {
+        const stored = localStorage.getItem(calibrationStorageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          Object.keys(parsed).forEach(k => {
+            if (k in currentCalibration) currentCalibration[k] = parsed[k];
+          });
+        }
+      } catch (_) {}
+    }
+
+    function saveCalibrationToStorage() {
+      localStorage.setItem(calibrationStorageKey, JSON.stringify(getCalibrationFromDOM()));
+    }
+
+    async function loadCalibrationFromBackend() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      if (!backendUrl) return null;
+      try {
+        const resp = await fetch(`${backendUrl}/api/calibration`);
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        const cfg = data.calibration || {};
+        Object.keys(cfg).forEach(k => { if (k in currentCalibration) currentCalibration[k] = cfg[k]; });
+        // Show server-side warning if persisted weights are out of balance
+        if (data.warning) {
+          const backendWarningEl = document.getElementById("backend-warning");
+          const backendWarningText = document.getElementById("backend-warning-text");
+          if (backendWarningText) {
+            backendWarningText.textContent = data.warning;
+          }
+          if (backendWarningEl) {
+            backendWarningEl.style.display = "block";
+            backendWarningEl.textContent = data.warning;
+          }
+        }
+        return cfg;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    async function saveCalibrationToBackend() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      if (!backendUrl) {
+        statusText.textContent = "当前状态：请先填写后端地址。";
+        return false;
+      }
+      try {
+        const resp = await fetch(`${backendUrl}/api/calibration`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(getCalibrationFromDOM()),
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.detail || `HTTP ${resp.status}`);
+        }
+        const data = await resp.json();
+        const cfg = data.calibration || {};
+        Object.keys(cfg).forEach(k => { if (k in currentCalibration) currentCalibration[k] = cfg[k]; });
+        saveCalibrationToStorage();
+        // Clear warning banner on successful save
+        const backendWarningEl = document.getElementById("backend-warning");
+        if (backendWarningEl) backendWarningEl.style.display = "none";
+        return true;
+      } catch (error) {
+        statusText.textContent = `当前状态：校准保存失败。${error.message}`;
+        return false;
+      }
+    }
+
+    function resetCalibration() {
+      currentCalibration = { ...DEFAULT_CALIBRATION };
+      localStorage.removeItem(calibrationStorageKey);
+      buildCalibrationUI(currentCalibration);
+      statusText.textContent = "当前状态：校准参数已重置为默认值。";
+    }
+
+    // Wire up weight inputs for real-time sum
+    ["cal-rating-weight", "cal-proof-weight", "cal-discussion-weight", "cal-persistence-weight"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("input", updateWeightSum);
+    });
+
+    // Toggle panel
+    if (toggleCalibrationBtn && toggleCalibrationPanel) {
+      toggleCalibrationBtn.addEventListener("click", () => {
+        if (calibrationPanel.style.display === "none" || !calibrationPanel.style.display) {
+          calibrationPanel.style.display = "block";
+          toggleCalibrationBtn.style.display = "none";
+          loadCalibrationFromStorage();
+          loadCalibrationFromBackend().then(cfg => {
+            buildCalibrationUI(cfg || currentCalibration);
+          }).catch(() => {
+            buildCalibrationUI(currentCalibration);
+          });
+        } else {
+          calibrationPanel.style.display = "none";
+          toggleCalibrationBtn.style.display = "inline-flex";
+        }
+      });
+
+      toggleCalibrationPanel.addEventListener("click", () => {
+        saveCalibrationToStorage();
+        calibrationPanel.style.display = "none";
+        toggleCalibrationBtn.style.display = "inline-flex";
+      });
+
+      saveCalibrationBtn.addEventListener("click", async () => {
+        const success = await saveCalibrationToBackend();
+        if (success) {
+          statusText.textContent = "当前状态：校准参数已保存到后端。";
+          // Clear backend warning banner after successful save
+          const backendWarningEl = document.getElementById("backend-warning");
+          if (backendWarningEl) backendWarningEl.style.display = "none";
+        }
+      });
+
+      resetCalibrationBtn.addEventListener("click", resetCalibration);
+    }
   </script>
 </body>
 </html>

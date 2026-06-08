@@ -45,6 +45,11 @@ Available endpoints:
 - `GET /api/health`
 - `GET /api/search?query=balatro`
 - `POST /api/analyze`
+- `GET /api/benchmarks`
+- `POST /api/benchmark_compare`
+- `GET /api/records`
+- `POST /api/record/load`
+- `DELETE /api/record/{record_id}`
 
 Example payload:
 
@@ -86,10 +91,14 @@ After deployment:
 - `app.py`: Streamlit entrypoint
 - `src/steam_publisher_predictor/services/steam_client.py`: Steam search and fetch logic
 - `src/steam_publisher_predictor/api.py`: FastAPI backend for search and analysis
+- `src/steam_publisher_predictor/api.py`: Added `/api/analyze` with `save_record` flag
+- `src/steam_publisher_predictor/api.py`: Added `/api/record/load`, `/api/records`, `/api/record/{id}` endpoints
+- `src/steam_publisher_predictor/services/storage/`: Local JSON persistence for prediction records
 - `src/steam_publisher_predictor/services/steamdb_client.py`: browser-backed SteamDB charts adapter
 - `src/steam_publisher_predictor/services/quality.py`: quality scoring logic
 - `src/steam_publisher_predictor/services/user_pool.py`: table-driven user pool mapping
 - `src/steam_publisher_predictor/services/calculator.py`: CL and sales calculation
+- `data/`: Local JSON files for saved prediction records
 - `docs/Project_Spec.md`: formal project rules for inputs, formulas, and scraping policy
 - `docs/Iteration_Development_Spec.md`: automatic iteration rules and execution policy
 - `render.yaml`: Render web-service deployment config

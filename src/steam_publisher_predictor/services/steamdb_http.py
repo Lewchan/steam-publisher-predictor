@@ -1,76 +1,77 @@
+"""Lightweight SteamDB HTTP-only adapter.
+
+Parses SteamDB app charts page without Playwright.
+Falls back to ``SteamDbClient`` (Playwright) when HTTP parsing fails.
+"""
+
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
+
+import httpx
 
 from steam_publisher_predictor.models import SteamDbStats
 
+if TYPE_CHECKING:
+    from steam_publisher_predictor.services.steamdb_client import SteamDbClient
 
-class SteamDbClientError(RuntimeError):
-    """Raised when SteamDB data cannot be fetched."""
+STATS_URL = "https://steamdb.info/app/{app_id}/charts/"
+_HTTP_TIMEOUT_SEC = 20
 
 
-class SteamDbClient:
-    APP_CHARTS_URL = "https://steamdb.info/app/{app_id}/charts/"
+class SteamDbHttpClientError(RuntimeError):
+    """Raised when the SteamDB HTTP adapter cannot fetch or parse data."""
 
-    def __init__(self, timeout_ms: int = 25000) -> None:
-        self._timeout_ms = timeout_ms
+
+class SteamDbHttpClient:
+    """HTTP-only SteamDB adapter that avoids Playwright overhead."""
+
+    def __init__(self, timeout: float = _HTTP_TIMEOUT_SEC) -> None:
+        self._client = httpx.Client(
+            timeout=timeout,
+            headers={
+                "User-Agent": (
+                    "steam-publisher-predictor/0.1 "
+                    "(+https://github.com/steam-publisher-predictor)"
+                ),
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            },
+            follow_redirects=True,
+            trust_env=False,
+        )
+        self._max_attempts = 2
 
     def fetch_stats(self, app_id: int) -> SteamDbStats:
-        url = self.APP_CHARTS_URL.format(app_id=app_id)
+        url = STATS_URL.format(app_id=app_id)
         html = self._fetch_html(url)
         stats = _parse_steamdb_html(html, url)
         return stats
 
     def _fetch_html(self, url: str) -> str:
-        # Primary path: HTTP-only adapter (no Playwright overhead)
-        from steam_publisher_predictor.services.steamdb_http import SteamDbHttpClient, SteamDbHttpClientError
-
-        try:
-            http_client = SteamDbHttpClient()
-            html = http_client._fetch_html(url)  # noqa: SLF001
-            return html
-        except SteamDbHttpClientError:
-            pass  # Fall through to Playwright fallback
-
-        # Fallback: Playwright browser rendering
-        from playwright.sync_api import sync_playwright
-
         last_error: Exception | None = None
-        with sync_playwright() as playwright:
-            for launcher in _browser_launchers(playwright):
-                try:
-                    browser = launcher()
-                    page = browser.new_page()
-                    page.goto(url, wait_until="domcontentloaded", timeout=self._timeout_ms)
-                    page.wait_for_timeout(1200)
-                    html = page.content()
-                    browser.close()
-                    return html
-                except Exception as exc:  # noqa: BLE001
-                    last_error = exc
-                    try:
-                        browser.close()
-                    except Exception:  # noqa: BLE001
-                        pass
+        for _ in range(self._max_attempts):
+            try:
+                response = self._client.get(url)
+                response.raise_for_status()
+                return response.text
+            except (httpx.TimeoutException, httpx.RemoteProtocolError, httpx.ConnectError, httpx.HTTPStatusError) as exc:
+                last_error = exc
+                continue
 
-        raise SteamDbClientError(f"SteamDB fetch failed (HTTP primary + browser fallback): {last_error}")
-
-
-def _browser_launchers(playwright):
-    launchers = []
-    launchers.append(lambda: playwright.chromium.launch(channel="msedge", headless=True))
-    launchers.append(lambda: playwright.chromium.launch(channel="chrome", headless=True))
-    launchers.append(lambda: playwright.chromium.launch(headless=True))
-    return launchers
+        if last_error is not None:
+            raise SteamDbHttpClientError(f"SteamDB HTTP request failed after retries: {last_error}") from last_error
+        raise SteamDbHttpClientError("SteamDB HTTP request failed for an unknown reason.")
 
 
 def _parse_steamdb_html(html: str, url: str) -> SteamDbStats:
+    """Parse SteamDB charts page HTML into a :class:`SteamDbStats` record."""
     text = _normalize_text(html)
     lowered = text.lower()
     if "you have been banned on steamdb" in lowered:
-        raise SteamDbClientError("SteamDB blocked this IP address.")
-    if "checking if the site connection is secure" in lowered or "cloudflare" in lowered and "verify you are human" in lowered:
-        raise SteamDbClientError("SteamDB presented a bot or challenge page.")
+        raise SteamDbHttpClientError("SteamDB blocked this IP address.")
+    if "checking if the site connection is secure" in lowered or ("cloudflare" in lowered and "verify you are human" in lowered):
+        raise SteamDbHttpClientError("SteamDB presented a bot or challenge page.")
 
     stats = SteamDbStats(url=url)
 
