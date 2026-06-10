@@ -1,6 +1,7 @@
-# Webber 2026/06/08 校准参数接入后端计算逻辑
+# Webber 2026/06/10 场景对比：场景化校准参数计算
 from __future__ import annotations
 
+from dataclasses import dataclass
 from steam_publisher_predictor.models import ManualInputs, SalesBreakdown, SteamGame
 from steam_publisher_predictor.services.quality import estimate_quality
 from steam_publisher_predictor.services.user_pool import estimate_user_pool
@@ -95,3 +96,86 @@ def calculate_sales(
         sales=sales,
         annual_long_tail_sales=annual_long_tail_sales,
     )
+
+
+@dataclass
+class ScenarioCalibration:
+    """Per-scenario calibration overrides applied on top of the base config."""
+    name: str
+    cl_cap: float = 3.0
+    cl_k1: float = 2.0
+    cl_k2: float = 2.0
+    quality_bias: float = 0.0  # shift applied to quality_score after calculation
+
+
+SCENARIO_CONFIGS: dict[str, ScenarioCalibration] = {
+    "conservative": ScenarioCalibration(
+        name="Conservative",
+        cl_cap=1.5,
+        cl_k1=1.5,
+        cl_k2=1.0,
+        quality_bias=-0.5,
+    ),
+    "baseline": ScenarioCalibration(
+        name="Baseline",
+        cl_cap=3.0,
+        cl_k1=2.0,
+        cl_k2=2.0,
+        quality_bias=0.0,
+    ),
+    "optimistic": ScenarioCalibration(
+        name="Optimistic",
+        cl_cap=4.0,
+        cl_k1=2.5,
+        cl_k2=3.0,
+        quality_bias=0.5,
+    ),
+}
+
+
+def calculate_sales_with_scenario(
+    game: SteamGame,
+    manual_inputs: ManualInputs,
+    scenario: str = "baseline",
+    cfg: CalibrationConfig | None = None,
+) -> SalesBreakdown:
+    """Calculate sales with scenario-specific calibration overrides.
+
+    Args:
+        game: Fetched Steam game data.
+        manual_inputs: Manual design inputs.
+        scenario: One of 'conservative', 'baseline', 'optimistic'.
+        cfg: Base calibration config.  If None, defaults are loaded.
+
+    Returns:
+        SalesBreakdown with scenario overrides applied.
+    """
+    if cfg is None:
+        cfg = load_calibration_config()
+
+    scenario_cfg = SCENARIO_CONFIGS.get(scenario, SCENARIO_CONFIGS["baseline"])
+
+    # Create a modified calibration config with scenario overrides
+    scenario_cfg_obj = CalibrationConfig(
+        rating_weight=cfg.rating_weight,
+        proof_weight=cfg.proof_weight,
+        discussion_weight=cfg.discussion_weight,
+        persistence_weight=cfg.persistence_weight,
+        showmanship_cap=cfg.showmanship_cap,
+        cl_cap=scenario_cfg.cl_cap,
+        cl_k1=scenario_cfg.cl_k1,
+        cl_k2=scenario_cfg.cl_k2,
+        low_confidence_threshold=cfg.low_confidence_threshold,
+        medium_confidence_threshold=cfg.medium_confidence_threshold,
+        missing_source_threshold=cfg.missing_source_threshold,
+    )
+
+    result = calculate_sales(game, manual_inputs, cfg=scenario_cfg_obj)
+
+    # Apply quality bias to the result
+    if scenario_cfg.quality_bias != 0.0:
+        result.quality.quality_score = max(
+            0, min(10, result.quality.quality_score + scenario_cfg.quality_bias)
+        )
+
+    return result

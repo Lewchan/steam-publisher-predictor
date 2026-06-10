@@ -14,10 +14,22 @@ from steam_publisher_predictor.settings import (
     save_calibration_config,
     get_allowed_origins,
 )
-from steam_publisher_predictor.services.calculator import calculate_sales
+from steam_publisher_predictor.services.calculator import (
+    calculate_sales,
+    calculate_sales_with_scenario,
+    SCENARIO_CONFIGS,
+)
 from steam_publisher_predictor.services.steam_client import SteamClient, SteamClientError
 from steam_publisher_predictor.services.storage import record as storage
 from steam_publisher_predictor.services import benchmark as benchmark_service
+from steam_publisher_predictor.services import calibration as cal_service
+from steam_publisher_predictor.services.discussion_source_base import (
+    list_registered_sources,
+    get_discussion_source,
+)
+from steam_publisher_predictor.services.discussion_source_base import (
+    NormalizedDiscussionResult,
+)
 
 
 class AnalyzeRequest(BaseModel):
@@ -28,6 +40,11 @@ class AnalyzeRequest(BaseModel):
 
 class RecordLoadRequest(BaseModel):
     record_id: str = Field(min_length=1)
+
+
+class ScenarioRequest(BaseModel):
+    query: str = Field(min_length=1)
+    manual_inputs: dict[str, object] | None = None
 
 
 def create_app() -> FastAPI:
@@ -163,7 +180,175 @@ def create_app() -> FastAPI:
             "benchmarks": bf.to_dict(),
         }
 
+    @app.get("/api/steamdb")
+    def get_steamdb(app_id: int) -> dict[str, object]:
+        """Fetch SteamDB stats for a given app_id."""
+        client = SteamClient()
+        try:
+            game = client.fetch_game(str(app_id))
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Steam fetch failed: {exc}") from exc
+
+        if game.app_id == 0:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        try:
+            from steam_publisher_predictor.services.steamdb_client import (
+                SteamDbClient,
+                SteamDbClientError,
+            )
+            db_client = SteamDbClient()
+            db_stats = db_client.fetch_stats(game.app_id)
+            game.steamdb = db_stats
+            response: dict[str, object] = {"game": asdict(game), "steamdb": asdict(db_stats)}
+            return response
+        except SteamDbClientError as exc:
+            return {
+                "game": asdict(game),
+                "steamdb": None,
+                "error": str(exc),
+            }
+        except Exception as exc:
+            return {
+                "game": asdict(game),
+                "steamdb": None,
+                "error": f"SteamDB fetch failed: {exc}",
+            }
+
+    @app.get("/api/steamdb_batch")
+    def get_steamdb_batch(app_ids: str) -> dict[str, object]:
+        """Fetch SteamDB stats for multiple app_ids (comma-separated)."""
+        ids = [int(a.strip()) for a in app_ids.split(",") if a.strip()]
+        results = []
+        errors = []
+        try:
+            from steam_publisher_predictor.services.steamdb_client import (
+                SteamDbClient,
+                SteamDbClientError,
+            )
+            db_client = SteamDbClient()
+            for aid in ids:
+                try:
+                    stats = db_client.fetch_stats(aid)
+                    results.append({"app_id": aid, "stats": asdict(stats)})
+                except SteamDbClientError as exc:
+                    errors.append({"app_id": aid, "error": str(exc)})
+                except Exception as exc:
+                    errors.append({"app_id": aid, "error": str(exc)})
+        except Exception as exc:
+            return {"results": results, "errors": errors, "message": f"Unexpected error: {exc}"}
+        return {"results": results, "errors": errors}
+
+    # ── Discussion Data API ──────────────────────────────────────────────
+
+    @app.get("/api/discussion_sources")
+    def list_discussion_sources() -> dict[str, object]:
+        """Return all registered discussion source types."""
+        return {"sources": list_registered_sources()}
+
+    @app.post("/api/discussion")
+    def fetch_discussion_data(payload: dict[str, object] = {}) -> dict[str, object]:
+        """Fetch discussion data for a game across all registered sources.
+
+        Returns normalised discussion results per source, following
+        Iteration_Development_Spec §15 (Data Adapter Rules).
+        """
+        game_name = payload.get("game_name", "")
+        max_results = payload.get("max_results", 20)
+        if not game_name:
+            return {"results": [], "message": "game_name is required"}
+
+        sources = list_registered_sources()
+        results = []
+        for source_type in sources:
+            source_cls = get_discussion_source(source_type)
+            if source_cls is None:
+                continue
+            try:
+                source_instance = source_cls()
+                normalized = source_instance.fetch(game_name, max_results=max_results)
+                results.append(asdict(normalized))
+            except Exception as exc:
+                # Never crash — return error message
+                results.append({
+                    "source_type": source_type,
+                    "game_name": game_name,
+                    "error_message": f"Unexpected error: {exc}",
+                })
+
+        return {"results": results, "sources": sources}
+
+    # ── Scenario Comparison API ──────────────────────────────────────────
+
+    @app.get("/api/scenarios")
+    def list_scenarios() -> dict[str, object]:
+        """Return available scenario configurations."""
+        return {
+            "scenarios": [
+                {
+                    "name": cfg.name,
+                    "cl_cap": cfg.cl_cap,
+                    "cl_k1": cfg.cl_k1,
+                    "cl_k2": cfg.cl_k2,
+                    "quality_bias": cfg.quality_bias,
+                }
+                for cfg in SCENARIO_CONFIGS.values()
+            ]
+        }
+
+    @app.post("/api/scenarios")
+    def run_scenario_comparison(payload: ScenarioRequest) -> dict[str, object]:
+        """Run scenario comparison for a given game query.
+
+        Returns all three scenarios (conservative, baseline, optimistic)
+        with their respective calibration overrides applied.
+        """
+        client = _create_client()
+        manual_inputs = ManualInputs(**(payload.manual_inputs or {}))
+
+        try:
+            game = client.fetch_game(payload.query)
+        except SteamClientError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        results = {}
+        for scenario_name in SCENARIO_CONFIGS:
+            try:
+                breakdown = calculate_sales_with_scenario(
+                    game, manual_inputs, scenario=scenario_name
+                )
+                results[scenario_name] = {
+                    "game": asdict(game),
+                    "scenario": SCENARIO_CONFIGS[scenario_name].name,
+                    "analysis": asdict(breakdown),
+                }
+            except Exception as exc:
+                results[scenario_name] = {"error": str(exc)}
+
+        return {"query": payload.query, "scenarios": results}
+
     # ── Calibration API ──────────────────────────────────────────────────
+
+    @app.get("/api/cal_games")
+    def list_cal_games() -> dict[str, object]:
+        """Return calibration seed games for the calibration page."""
+        games = cal_service.get_seed_cal_games()
+        return {"games": [asdict(g) for g in games]}
+
+    @app.post("/api/calibrate")
+    def run_calibration(payload: dict[str, object] = {}) -> dict[str, object]:
+        """Run calibration for one or all seed games."""
+        game_ids = payload.get("game_ids")  # None = all
+        results = []
+        for cal_game in cal_service.get_seed_cal_games():
+            if game_ids is not None and cal_game.id not in game_ids:
+                continue
+            result = cal_service.run_calibration(cal_game)
+            results.append(asdict(result))
+        # Save results
+        cal_results = [cal_service.CalibrationResult(**r) for r in results]
+        cal_service.save_calibration_results(cal_results)
+        return {"results": results}
 
     @app.get("/api/calibration")
     def get_calibration() -> dict[str, object]:

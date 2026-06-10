@@ -1,4 +1,4 @@
-<!-- Web_Front 2026/06/08 迭代完成: 校准控制集成后端API + 新增校准面板localStorage持久化 + 修复HTML结构 -->
+<!-- Webber 2026/06/11 迭代完成: 讨论数据面板 + 跨平台讨论源展示 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -247,6 +247,8 @@
       margin-top: 14px;
       color: var(--muted);
       font-size: 14px;
+      line-height: 1.5;
+      word-break: break-word;
     }
 
     .results-grid {
@@ -340,25 +342,617 @@
         grid-template-columns: 1fr;
         gap: 2px;
       }
+
+      /* Tighten panel padding for tablet */
+      .hero {
+        padding: 24px 20px;
+      }
+
+      .panel {
+        padding: 18px;
+      }
+
+      .form-grid {
+        gap: 10px;
+      }
+
+      .input,
+      .textarea {
+        padding: 12px 14px;
+      }
+
+      .button {
+        min-height: 42px;
+        padding: 0 14px;
+        font-size: 14px;
+      }
+
+      .result-headline {
+        font-size: 22px;
+      }
+
+      /* Compact status text for tablets */
+      #status-text {
+        word-break: break-word;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+    }
+
+    @media (max-width: 720px) {
+      /* Ensure touch-friendly inputs */
+      input[type="number"],
+      input[type="text"],
+      input[type="checkbox"] {
+        min-height: 44px;
+      }
+
+      input[type="checkbox"] {
+        width: 22px;
+        height: 22px;
+      }
+
+      /* Improve label readability */
+      label {
+        font-size: 13px;
+      }
+
+      /* Improve scrollbar for narrow screens */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: rgba(0,0,0,0.2);
+        border-radius: 3px;
+      }
+
+      /* Better table rendering on small screens */
+      table {
+        font-size: 13px;
+      }
+
+      th, td {
+        padding: 6px 8px !important;
+      }
+    }
+      .frame {
+        width: min(100% - 16px, 1120px);
+        margin: 16px auto 32px;
+      }
+
+      .hero {
+        padding: 20px 16px;
+      }
+
+      .panel {
+        padding: 16px;
+      }
+
+      h1 {
+        font-size: clamp(32px, 9vw, 52px);
+      }
+
+      .subhead {
+        font-size: 16px;
+      }
+
+      .metric-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .metric {
+        padding: 12px;
+      }
+
+      .metric-value {
+        font-size: 22px;
+      }
+
+      .metric-name {
+        font-size: 11px;
+      }
+
+      .result-card {
+        padding: 18px;
+        border-radius: 18px;
+      }
+
+      .status-row {
+        flex-direction: column;
+      }
+
+      .status-row .button {
+        width: 100%;
+      }
+
+      /* Compact manual inputs */
+      #manual-inputs-container {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+        gap: 10px !important;
+      }
+
+      /* Compact calibration panel */
+      #cal-rating-weight,
+      #cal-proof-weight,
+      #cal-discussion-weight,
+      #cal-persistence-weight,
+      #cal-showmanship-cap,
+      #cal-cl-cap,
+      #cal-cl-k1,
+      #cal-cl-k2,
+      #cal-low-confidence,
+      #cal-medium-confidence,
+      #cal-missing-source-threshold {
+        font-size: 15px;
+      }
     }
 
     @media (max-width: 560px) {
       .frame {
-        width: min(100% - 20px, 1120px);
-        margin-top: 10px;
+        width: min(100% - 12px, 1120px);
+        margin: 12px auto 24px;
       }
 
       .hero, .panel {
-        border-radius: 22px;
+        border-radius: 18px;
       }
 
       .hero {
-        padding: 24px;
+        padding: 16px 12px;
+      }
+
+      .eyebrow {
+        font-size: 11px;
+        padding: 6px 10px;
+        margin-bottom: 12px;
+      }
+
+      h1 {
+        font-size: clamp(28px, 10vw, 40px);
+      }
+
+      .subhead {
+        font-size: 14px;
+        margin-bottom: 20px;
+      }
+
+      .hero-actions {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .button {
+        width: 100%;
+        min-height: 44px;
+        font-size: 14px;
+      }
+
+      .metric-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .metric {
+        padding: 10px;
+        border-radius: 14px;
+      }
+
+      .metric-value {
+        font-size: 20px;
+      }
+
+      .metric-name {
+        font-size: 10px;
+      }
+
+      .panel {
+        padding: 14px 12px;
+      }
+
+      .form-grid {
+        gap: 8px;
+      }
+
+      .input,
+      .textarea {
+        padding: 11px 12px;
+        font-size: 16px; /* prevent iOS zoom */
+      }
+
+      .status-row {
+        gap: 6px;
+      }
+
+      .status-row .button {
+        width: 100%;
+        min-height: 38px;
+        font-size: 13px;
+        padding: 0 10px;
+      }
+
+      .result-card {
+        padding: 14px;
+        border-radius: 16px;
+      }
+
+      .result-title {
+        font-size: 11px;
+      }
+
+      .result-headline {
+        font-size: 20px;
+      }
+
+      .kv {
+        font-size: 14px;
+      }
+
+      /* Compact manual inputs on very small screens */
+      #manual-inputs-container {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+      }
+
+      #manual-inputs-container > div {
+        min-width: 0;
+      }
+
+      /* Compact calibration panel */
+      #cal-rating-weight,
+      #cal-proof-weight,
+      #cal-discussion-weight,
+      #cal-persistence-weight,
+      #cal-showmanship-cap,
+      #cal-cl-cap,
+      #cal-cl-k1,
+      #cal-cl-k2,
+      #cal-low-confidence,
+      #cal-medium-confidence,
+      #cal-missing-source-threshold {
+        font-size: 15px;
+      }
+
+      .code {
+        font-size: 11px;
+        padding: 12px 10px;
+      }
+
+      .warning-banner {
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+
+      .warning-icon {
+        font-size: 16px;
+      }
+
+      /* Footer compact */
+      .footer {
+        font-size: 12px;
+        padding: 12px 4px 0;
+      }
+    }
+
+    @media (max-width: 420px) {
+      /* Very small phones — compact all panels */
+      .frame {
+        width: 100%;
+        margin: 8px 0 20px;
+      }
+
+      .hero, .panel {
+        border-radius: 14px;
+      }
+
+      .hero {
+        padding: 14px 10px;
+      }
+
+      .panel {
+        padding: 12px 10px;
+      }
+
+      h1 {
+        font-size: 26px;
+      }
+
+      .subhead {
+        font-size: 13px;
       }
 
       .metric-strip {
         grid-template-columns: 1fr;
       }
+
+      .metric {
+        padding: 8px;
+      }
+
+      .metric-value {
+        font-size: 18px;
+      }
+
+      .metric-name {
+        font-size: 10px;
+      }
+
+      .label {
+        font-size: 11px;
+      }
+
+      .status-row .button {
+        font-size: 12px;
+        padding: 0 8px;
+        min-height: 34px;
+      }
+
+      /* Compact calibration panel labels */
+      .result-title {
+        font-size: 13px;
+      }
+
+      .copy {
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .warning-banner {
+        padding: 10px 10px;
+        font-size: 13px;
+      }
+
+      .warning-icon {
+        font-size: 16px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      /* Ultra-small phones */
+      .frame {
+        width: 100%;
+        margin: 6px 0 16px;
+      }
+
+      .hero, .panel {
+        border-radius: 12px;
+      }
+
+      .hero {
+        padding: 12px 8px;
+      }
+
+      .panel {
+        padding: 10px 8px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+
+      .subhead {
+        font-size: 12px;
+      }
+
+      .metric-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .status-row .button {
+        font-size: 11px;
+        padding: 0 6px;
+        min-height: 30px;
+      }
+
+      .result-card {
+        padding: 10px;
+        border-radius: 12px;
+      }
+
+      .result-title {
+        font-size: 12px;
+      }
+
+      .result-headline {
+        font-size: 18px;
+      }
+
+      .kv {
+        font-size: 13px;
+      }
+
+      .footer {
+        font-size: 11px;
+      }
+
+      /* Ultra-compact calibration labels */
+      .result-title {
+        font-size: 12px;
+        letter-spacing: 0.04em;
+      }
+
+      label {
+        font-size: 11px !important;
+      }
+
+      #cal-rating-weight,
+      #cal-proof-weight,
+      #cal-discussion-weight,
+      #cal-persistence-weight,
+      #cal-showmanship-cap,
+      #cal-cl-cap,
+      #cal-cl-k1,
+      #cal-cl-k2,
+      #cal-low-confidence,
+      #cal-medium-confidence,
+      #cal-missing-source-threshold,
+      #mi-art_base,
+      #mi-gameplay_depth,
+      #mi-scope,
+      #mi-narrative,
+      #mi-ip_factor,
+      #mi-influencer_factor {
+        font-size: 14px !important;
+        padding: 8px 10px !important;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff !important;
+        color: #000 !important;
+      }
+
+      .hero, .panel, .result-card {
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        background: #fff !important;
+      }
+
+      .button, .status-row, .footer {
+        display: none !important;
+      }
+
+      .frame {
+        width: 100%;
+        margin: 0;
+      }
+    }
+
+    /* ── Calibration page styles ───────────────────────────────────── */
+    .cal-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .cal-tab {
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.4);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background 120ms, border-color 120ms;
+    }
+
+    .cal-tab.active {
+      background: rgba(31,122,82,0.12);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .cal-tab:hover:not(.active) {
+      background: rgba(255,255,255,0.7);
+    }
+
+    .cal-deviation-positive {
+      color: var(--accent);
+    }
+
+    .cal-deviation-negative {
+      color: var(--accent-2);
+    }
+
+    .cal-deviation-bar {
+      height: 4px;
+      border-radius: 2px;
+      background: var(--line);
+      margin-top: 4px;
+      overflow: hidden;
+    }
+
+    .cal-deviation-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 200ms ease;
+    }
+
+    .cal-deviation-fill.positive {
+      background: var(--accent);
+      float: right;
+    }
+
+    .cal-deviation-fill.negative {
+      background: var(--accent-2);
+    }
+
+    /* ── End Calibration page styles ───────────────────────────────── */
+
+    /* ── Discussion data styles ──────────────────────────────────────── */
+    .discussion-source-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.5);
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+    .discussion-source-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .discussion-source-name {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .discussion-source-type {
+      font-size: 11px;
+      font-family: IBM Plex Mono, monospace;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+    }
+    .discussion-source-error {
+      color: var(--accent-2);
+      font-size: 14px;
+    }
+    .discussion-item {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(16,34,24,0.06);
+    }
+    .discussion-item:last-child {
+      border-bottom: none;
+    }
+    .discussion-item-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .discussion-item-meta {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      gap: 16px;
+    }
+    .discussion-item-body {
+      font-size: 13px;
+      color: var(--ink);
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+    .discussion-item-url {
+      font-size: 12px;
+      color: var(--accent);
+      word-break: break-all;
+    }
+    .discussion-error-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(213,91,45,0.1);
+      color: var(--accent-2);
+      font-size: 13px;
+      font-weight: 500;
     }
 
     /* Quality confidence warning styles */
@@ -431,6 +1025,7 @@
       </p>
       <div class="hero-actions">
         <a class="button button-primary" href="https://github.com/Lewchan/steam-publisher-predictor" target="_blank" rel="noreferrer">查看 GitHub 仓库</a>
+        <a class="button button-secondary" id="nav-calibration" type="button">📊 校准面板</a>
         <a class="button button-secondary" href="./README.md">查看项目说明</a>
       </div>
       <p class="copy" style="margin-top:12px;font-size:14px;">
@@ -519,12 +1114,15 @@
           <button class="button button-primary" id="run-analysis" type="button">开始分析</button>
         </div>
         <div class="status-row">
+          <button class="button button-primary" id="quick-analyze" type="button">🚀 快速分析 + 标杆对比</button>
           <button class="button button-secondary" id="check-health" type="button">检查后端状态</button>
           <button class="button button-secondary" id="run-scenarios" type="button">场景对比</button>
           <button class="button button-secondary" id="benchmark-compare" type="button">标杆对比</button>
           <button class="button button-secondary" id="save-record" type="button">保存记录</button>
           <button class="button button-secondary" id="load-records" type="button">查看历史</button>
           <button class="button button-secondary" id="export-report" type="button">导出数据</button>
+          <button class="button button-secondary" id="fetch-steamdb" type="button">📊 SteamDB 数据</button>
+          <button class="button button-secondary" id="fetch-discussion" type="button">💬 讨论数据</button>
           <div class="pill" id="health-pill">后端健康状态：未检查</div>
         </div>
         <div class="status" id="status-text">当前状态：等待调用后端。</div>
@@ -634,6 +1232,10 @@
             <div class="result-headline" id="sales-headline">-</div>
             <div class="kv" id="sales-summary"></div>
           </article>
+          <article class="result-card full">
+            <div class="result-title">CL 计算拆解</div>
+            <div class="kv" id="cl-breakdown-summary"></div>
+          </article>
           <article class="result-card">
             <div class="result-title">质量拆解</div>
             <div class="kv" id="quality-summary"></div>
@@ -651,6 +1253,7 @@
           <div class="result-title">质量评估提示</div>
           <div id="warning-content"></div>
         </article>
+      </section>
       </article>
 
       <section class="results-grid hidden" id="scenario-grid">
@@ -678,7 +1281,74 @@
         </article>
       </section>
 
-      <section class="results-grid hidden" id="benchmark-grid">
+      <section class="results-grid hidden" id="calibration-grid">
+      <article class="result-card full">
+        <div class="result-title">校准面板 — 样本游戏基准对照</div>
+        <p class="copy" style="margin-bottom:14px;">
+          对预定义的标杆游戏运行完整的销量预测公式，将计算结果与预期范围对照，
+          识别模型偏差方向与幅度。修改手动参数后点击「重新计算」查看变化。
+          支持 SAO_Anchor 虚拟上限对照。
+        </p>
+        <div id="cal-tabs" class="cal-tabs"></div>
+        <div class="status-row" style="margin-bottom:16px;">
+          <button class="button button-primary" id="run-cal-all" type="button">对所有标杆运行计算</button>
+          <button class="button button-secondary" id="save-cal-results" type="button">保存结果</button>
+        </div>
+        <div id="cal-game-detail" style="display:none;">
+          <div class="label" id="cal-game-title"></div>
+          <p class="copy" id="cal-game-desc" style="margin-bottom:14px;"></p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;" id="cal-manual-inputs"></div>
+        </div>
+        <div id="cal-results-container" style="margin-top:18px;">
+          <div id="cal-summary-cards" class="results-grid" style="display:none;"></div>
+          <div id="cal-deviation-table" style="overflow-x:auto;"></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="results-grid hidden" id="discussion-grid">
+        <article class="result-card full">
+          <div class="result-title">Discussion 数据 — 跨平台公开讨论源</div>
+          <p class="copy" style="margin-bottom:14px;">
+            抓取各公开讨论源对指定游戏的讨论数据，用于质量评分中的讨论强度信号。
+            数据可能因平台反爬策略而部分不可用。
+          </p>
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">
+            <input class="input" id="discussion-game-query" placeholder="输入游戏名" value="Balatro" style="flex:1;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap;">
+              最大结果数
+              <input class="input" id="discussion-max-results" type="number" value="20" min="1" max="100" step="5" style="width:80px;">
+            </label>
+            <button class="button button-primary" id="discussion-run-btn" type="button">获取讨论数据</button>
+          </div>
+          <div id="discussion-sources-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;"></div>
+          <div id="discussion-content" style="overflow-x:auto;"></div>
+          <div id="discussion-error" class="warning-banner low-confidence" style="display:none;margin-top:14px;">
+            <span class="warning-icon">⚠️</span>
+            <div class="warning-content">
+              <div class="warning-title">讨论数据获取失败</div>
+              <div class="warning-detail" id="discussion-error-text"></div>
+            </div>
+          </div>
+        </article>
+    </section>
+
+    <section class="results-grid hidden" id="benchmark-grid">
+        <article class="result-card full" style="display: none;" id="steamdb-panel">
+          <div class="result-title">SteamDB 数据</div>
+          <p class="copy" style="margin-bottom:14px;">
+            SteamDB 公开数据，包含当前在线人数、峰值、评分与排名信息。
+            数据可能因 SteamDB 反爬策略而不可用。
+          </p>
+          <div id="steamdb-content" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;"></div>
+          <div id="steamdb-error" class="warning-banner low-confidence" style="display:none;margin-top:14px;">
+            <span class="warning-icon">⚠️</span>
+            <div class="warning-content">
+              <div class="warning-title">SteamDB 数据获取失败</div>
+              <div class="warning-detail" id="steamdb-error-text"></div>
+            </div>
+          </div>
+        </article>
         <article class="result-card full">
           <div class="result-title">标杆对比</div>
           <p style="color:var(--muted);font-size:14px;margin-bottom:14px;">
@@ -718,12 +1388,17 @@
     const benchmarkGrid = document.getElementById("benchmark-grid");
     const benchmarkComparisonTable = document.getElementById("benchmark-comparison-table");
     const benchmarkReferenceTable = document.getElementById("benchmark-reference-table");
+    const steamdbPanel = document.getElementById("steamdb-panel");
+    const steamdbContent = document.getElementById("steamdb-content");
+    const steamdbError = document.getElementById("steamdb-error");
+    const steamdbErrorText = document.getElementById("steamdb-error-text");
     const gameName = document.getElementById("game-name");
     const gameSummary = document.getElementById("game-summary");
     const salesHeadline = document.getElementById("sales-headline");
     const salesSummary = document.getElementById("sales-summary");
     const qualitySummary = document.getElementById("quality-summary");
     const poolSummary = document.getElementById("pool-summary");
+    const clBreakdownSummary = document.getElementById("cl-breakdown-summary");
     const qualityWarning = document.getElementById("quality-warning");
     const warningContent = document.getElementById("warning-content");
 
@@ -1022,7 +1697,33 @@
         ["命中品类", poolMatches]
       ]);
 
+      // CL calculation breakdown (per spec Section 7.2)
+      if (clBreakdownSummary) {
+        fillKv(clBreakdownSummary, [
+          ["CL 原始值", formatNumber(analysis.cl_base_raw)],
+          ["CL 标准化", Number(analysis.cl_base).toFixed(6)],
+          ["增幅标签总和", Number(analysis.amplification_tag_total).toFixed(2)],
+          ["Showmanship 原始", Number(analysis.showmanship_raw).toFixed(4)],
+          ["Showmanship 生效", Number(analysis.showmanship_effect).toFixed(4)],
+          ["品牌系数", Number(analysis.brand_factor).toFixed(4)],
+          ["CL 原始计算", Number(analysis.cl_raw).toFixed(4)],
+          ["CL 得分（含上限）", Number(analysis.cl_score).toFixed(4)],
+        ]);
+      }
+
       resultsGrid.classList.remove("hidden");
+
+      // Auto-fetch SteamDB data after analysis
+      const appId = payload.game?.app_id;
+      if (appId && appId > 0) {
+        fetchSteamdb(appId);
+      }
+
+      // Auto-fetch discussion data after analysis
+      const gameName = payload.game?.name || payload.query || "";
+      if (gameName) {
+        fetchDiscussionDataForGame(gameName);
+      }
 
       // Quality confidence warning logic
       renderQualityWarning(quality);
@@ -1172,13 +1873,95 @@
       recordListGrid.classList.add("hidden");
       benchmarkGrid.classList.add("hidden");
 
-      statusText.textContent = "当前状态：正在并行运行三个场景方案...";
+      statusText.textContent = "当前状态：正在运行场景对比分析...";
 
-      await runScenario("conservative");
-      await runScenario("baseline");
-      await runScenario("optimistic");
+      const manualPayload = getManualInputsPayload();
+      const requestBody = { query };
+      if (Object.keys(manualPayload).length > 0) {
+        requestBody.manual_inputs = manualPayload;
+      }
 
-      statusText.textContent = "当前状态：场景对比完成。";
+      try {
+        const response = await fetch(`${backendUrl}/api/scenarios`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.detail || `HTTP ${response.status}`);
+        }
+
+        const scenarios = payload.scenarios || {};
+        scenarioGrid.innerHTML = "";
+
+        const scenarioNames = ["conservative", "baseline", "optimistic"];
+        const scenarioLabels = {
+          conservative: "保守方案",
+          baseline: "基准方案",
+          optimistic: "乐观方案",
+        };
+
+        for (const sName of scenarioNames) {
+          const data = scenarios[sName];
+          if (!data || data.error) {
+            const card = document.createElement("article");
+            card.className = "result-card";
+            card.innerHTML = `<div class="result-title">${scenarioLabels[sName]}</div><div class="warning-banner low-confidence"><span class="warning-icon">⚠️</span><div class="warning-content"><div class="warning-title">计算失败</div><div class="warning-detail">${data?.error || "未知错误"}</div></div></div>`;
+            scenarioGrid.appendChild(card);
+            continue;
+          }
+
+          const analysis = data.analysis;
+          const pool = analysis.user_pool || {};
+
+          const card = document.createElement("article");
+          card.className = "result-card";
+          card.innerHTML = `
+            <div class="result-title">${scenarioLabels[sName]}</div>
+            <div class="result-headline" id="scenario-${sName}-sales">${formatNumber(analysis.sales)} 份</div>
+            <div class="kv" id="scenario-${sName}-kv"></div>
+          `;
+          scenarioGrid.appendChild(card);
+
+          // Re-render after DOM insertion
+          requestAnimationFrame(() => {
+            const kvEl = document.getElementById(`scenario-${sName}-kv`);
+            if (kvEl) {
+              fillKv(kvEl, [
+                ["CL", Number(analysis.cl_score).toFixed(2)],
+                ["基础转化", Number(analysis.base_conversion).toFixed(4)],
+                ["用户池", formatNumber(pool.estimated_user_pool)],
+                ["销量预测", formatNumber(analysis.sales)],
+              ]);
+            }
+          });
+        }
+
+        // Add comparison summary card
+        const summaryCard = document.createElement("article");
+        summaryCard.className = "result-card full";
+        const conservativeSales = scenarios.conservative?.analysis?.sales || 0;
+        const baselineSales = scenarios.baseline?.analysis?.sales || 0;
+        const optimisticSales = scenarios.optimistic?.analysis?.sales || 0;
+        const spread = optimisticSales - conservativeSales;
+        const spreadPct = conservativeSales > 0 ? Math.round((spread / conservativeSales) * 100) : 0;
+        summaryCard.innerHTML = `
+          <div class="result-title">场景对比摘要</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+            <div class="metric"><div class="metric-value" style="color:var(--accent-2);">${formatNumber(conservativeSales)}</div><div class="metric-name">保守方案销量</div></div>
+            <div class="metric"><div class="metric-value" style="color:var(--accent);">${formatNumber(baselineSales)}</div><div class="metric-name">基准方案销量</div></div>
+            <div class="metric"><div class="metric-value" style="color:var(--accent);">${formatNumber(optimisticSales)}</div><div class="metric-name">乐观方案销量</div></div>
+            <div class="metric"><div class="metric-value">${spreadPct}%</div><div class="metric-name">保守→乐观 增幅</div></div>
+          </div>
+        `;
+        scenarioGrid.appendChild(summaryCard);
+
+        statusText.textContent = "当前状态：场景对比完成。";
+      } catch (error) {
+        statusText.textContent = `当前状态：场景对比失败。${error.message}`;
+        scenarioGrid.classList.add("hidden");
+      }
     }
 
     // ── Benchmark Comparison ────────────────────────────────────────────
@@ -1417,6 +2200,7 @@
               </div>
               <div style="display:flex;gap:8px;">
                 <button class="button button-secondary" style="min-height:32px;padding:0 10px;font-size:13px;" onclick="loadSingleRecord('${r.record_id.replace(/'/g, "\\'")}', '${backendUrl.replace(/'/g, "\\'")}')">加载</button>
+                <button class="button button-secondary" style="min-height:32px;padding:0 10px;font-size:13px;" onclick="loadAndAnalyzeRecord('${r.record_id.replace(/'/g, "\\'")}', '${backendUrl.replace(/'/g, "\\'")}')">分析+对比</button>
               </div>
             </div>
           `;
@@ -1445,6 +2229,138 @@
         resultsGrid.classList.remove("hidden");
       } catch (error) {
         statusText.textContent = `当前状态：加载失败。${error.message}`;
+      }
+    }
+
+    async function loadAndAnalyzeRecord(recordId, backendUrl) {
+      try {
+        // Step 1: Load the record
+        const loadResp = await fetch(`${backendUrl}/api/record/load`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ record_id: recordId }),
+        });
+        const loadResult = await loadResp.json();
+        if (!loadResp.ok) throw new Error(loadResult.detail || `HTTP ${loadResp.status}`);
+
+        lastPayload = loadResult.record;
+        gameQueryInput.value = loadResult.record.query || "";
+
+        // Step 2: Re-run analysis with loaded parameters
+        statusText.textContent = "当前状态：正在使用加载的参数重新分析...";
+        const manualInputs = loadResult.record.manual_inputs || {};
+
+        const analyzeResp = await fetch(`${backendUrl}/api/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: loadResult.record.query,
+            manual_inputs: manualInputs,
+            save_record: false,
+          }),
+        });
+        const analyzeResult = await analyzeResp.json();
+        if (!analyzeResp.ok) throw new Error(analyzeResult.detail || `HTTP ${analyzeResp.status}`);
+
+        lastPayload = analyzeResult;
+        lastAnalysisData = analyzeResult.analysis;
+
+        // Step 3: Show analysis results
+        renderResults(lastPayload);
+        recordListGrid.classList.add("hidden");
+        resultsGrid.classList.remove("hidden");
+
+        // Step 4: Benchmark comparison
+        statusText.textContent = "当前状态：正在运行标杆对比...";
+        const benchmarkData = await loadBenchmarkData();
+        const benchmarks = benchmarkData.records || [];
+
+        if (benchmarks.length === 0) {
+          statusText.textContent = "当前状态：分析完成，但暂无标杆数据。";
+          benchmarkGrid.classList.add("hidden");
+          return;
+        }
+
+        const compareResp = await fetch(`${backendUrl}/api/benchmark_compare`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ analysis: lastAnalysisData }),
+        });
+        const comparePayload = await compareResp.json();
+        if (!compareResp.ok) throw new Error(comparePayload.detail || `HTTP ${compareResp.status}`);
+
+        const comparison = comparePayload.comparison || [];
+        benchmarkComparisonTable.innerHTML = "";
+        benchmarkReferenceTable.innerHTML = "";
+
+        if (comparison.length > 0) {
+          const currentName = (lastPayload?.game?.name) || gameQueryInput.value || "当前分析";
+          let compHtml = '<table style="width:100%;border-collapse:collapse;font-size:14px;">';
+          compHtml += '<thead><tr style="border-bottom:2px solid var(--line);">';
+          compHtml += '<th style="text-align:left;padding:8px;">标杆</th>';
+          compHtml += '<th style="text-align:right;padding:8px;">质量 Δ</th>';
+          compHtml += '<th style="text-align:right;padding:8px;">CL Δ</th>';
+          compHtml += '<th style="text-align:right;padding:8px;">用户池 Δ</th>';
+          compHtml += '<th style="text-align:right;padding:8px;">销量 Δ</th>';
+          compHtml += '<th style="text-align:right;padding:8px;">SAO 差值</th>';
+          compHtml += '</tr></thead><tbody>';
+
+          comparison.forEach(c => {
+            const diffClass = (val) => {
+              const v = Number(val) || 0;
+              if (v > 0) return 'style="color:var(--accent);"';
+              if (v < 0) return 'style="color:var(--accent-2);"';
+              return '';
+            };
+            compHtml += '<tr style="border-bottom:1px solid var(--line);">';
+            compHtml += `<td style="padding:8px;font-weight:600;">${escapeHtml(c.benchmark_game)}</td>`;
+            compHtml += `<td style="padding:8px;text-align:right;" ${diffClass(c.quality_diff)}>${(Number(c.quality_diff) || 0) >= 0 ? '+' : ''}${Number(c.quality_diff).toFixed(2)}</td>`;
+            compHtml += `<td style="padding:8px;text-align:right;" ${diffClass(c.cl_diff)}>${(Number(c.cl_diff) || 0) >= 0 ? '+' : ''}${Number(c.cl_diff).toFixed(2)}</td>`;
+            compHtml += `<td style="padding:8px;text-align:right;" ${diffClass(c.pool_diff)}>${(Number(c.pool_diff) || 0) >= 0 ? '+' : ''}${formatNumber(c.pool_diff)}</td>`;
+            compHtml += `<td style="padding:8px;text-align:right;" ${diffClass(c.sales_diff)}>${(Number(c.sales_diff) || 0) >= 0 ? '+' : ''}${formatNumber(c.sales_diff)}</td>`;
+            compHtml += `<td style="padding:8px;text-align:right;" ${c.sao_diff !== null && diffClass(c.sao_diff)}>${c.sao_diff !== null ? ((Number(c.sao_diff) || 0) >= 0 ? '+' : '') + formatNumber(c.sao_diff) : 'N/A'}</td>`;
+            compHtml += '</tr>';
+          });
+          compHtml += '</tbody></table>';
+          compHtml += `<p style="margin-top:14px;font-size:14px;color:var(--muted);">
+            当前游戏：<strong>${escapeHtml(currentName)}</strong> — 销量预测：<strong>${formatNumber(lastAnalysisData?.sales)}</strong> 份
+          </p>`;
+          benchmarkComparisonTable.innerHTML = compHtml;
+        }
+
+        // Render benchmark reference table
+        if (benchmarks.length > 0) {
+          let refHtml = '<table style="width:100%;border-collapse:collapse;font-size:14px;">';
+          refHtml += '<thead><tr style="border-bottom:2px solid var(--line);">';
+          refHtml += '<th style="text-align:left;padding:8px;">游戏</th>';
+          refHtml += '<th style="text-align:left;padding:8px;">品类</th>';
+          refHtml += '<th style="text-align:right;padding:8px;">质量分</th>';
+          refHtml += '<th style="text-align:right;padding:8px;">CL</th>';
+          refHtml += '<th style="text-align:right;padding:8px;">用户池</th>';
+          refHtml += '<th style="text-align:right;padding:8px;">销量</th>';
+          refHtml += '<th style="text-align:right;padding:8px;">SAO 上限</th>';
+          refHtml += '<th style="text-align:left;padding:8px;">来源</th>';
+          refHtml += '</tr></thead><tbody>';
+          benchmarks.forEach(b => {
+            refHtml += '<tr style="border-bottom:1px solid var(--line);">';
+            refHtml += `<td style="padding:8px;font-weight:600;">${escapeHtml(b.game_name)}</td>`;
+            refHtml += `<td style="padding:8px;color:var(--muted);font-size:13px;">${escapeHtml(b.genre_cluster || "")}</td>`;
+            refHtml += `<td style="padding:8px;text-align:right;">${Number(b.quality_score).toFixed(1)}</td>`;
+            refHtml += `<td style="padding:8px;text-align:right;">${Number(b.cl_score).toFixed(2)}</td>`;
+            refHtml += `<td style="padding:8px;text-align:right;">${formatNumber(b.user_pool)}</td>`;
+            refHtml += `<td style="padding:8px;text-align:right;">${formatNumber(b.sales)}</td>`;
+            refHtml += `<td style="padding:8px;text-align:right;">${b.sao_anchor ? formatNumber(b.sao_anchor) : "N/A"}</td>`;
+            refHtml += `<td style="padding:8px;color:var(--muted);font-size:13px;">${escapeHtml(b.source_label || "")}</td>`;
+            refHtml += '</tr>';
+          });
+          refHtml += '</tbody></table>';
+          benchmarkReferenceTable.innerHTML = refHtml;
+        }
+
+        benchmarkGrid.classList.remove("hidden");
+        statusText.textContent = "当前状态：记录已加载、重新分析并完成标杆对比。";
+      } catch (error) {
+        statusText.textContent = `当前状态：操作失败。${error.message}`;
       }
     }
 
@@ -1545,6 +2461,146 @@
       return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
     }
 
+    // ── Quick Analyze + Benchmark Compare ─────────────────────────────
+    const quickAnalyzeButton = document.getElementById("quick-analyze");
+    if (quickAnalyzeButton) {
+      quickAnalyzeButton.addEventListener("click", async () => {
+        const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+        const query = gameQueryInput.value.trim();
+        if (!backendUrl) {
+          statusText.textContent = "当前状态：请先填写后端地址。";
+          return;
+        }
+        if (!query) {
+          statusText.textContent = "当前状态：请先输入游戏名。";
+          return;
+        }
+
+        window.localStorage.setItem(storageKey, backendUrl);
+        statusText.textContent = "当前状态：正在快速分析并运行标杆对比...";
+        resultsGrid.classList.add("hidden");
+        scenarioGrid.classList.add("hidden");
+        recordListGrid.classList.add("hidden");
+
+        try {
+          // Step 1: Run analysis
+          const manualPayload = getManualInputsPayload();
+          const requestBody = { query, save_record: false };
+          if (Object.keys(manualPayload).length > 0) {
+            requestBody.manual_inputs = manualPayload;
+          }
+
+          const analyzeResp = await fetch(`${backendUrl}/api/analyze`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+          });
+          const analyzeResult = await analyzeResp.json();
+          if (!analyzeResp.ok) throw new Error(analyzeResult.detail || `HTTP ${analyzeResp.status}`);
+
+          lastPayload = analyzeResult;
+          lastAnalysisData = analyzeResult.analysis;
+
+          // Render analysis results
+          renderResults(analyzeResult);
+          resultsGrid.classList.remove("hidden");
+
+          // Step 2: Run benchmark comparison
+          statusText.textContent = "当前状态：正在加载标杆数据并对比...";
+          const benchmarkData = await loadBenchmarkData();
+          const benchmarks = benchmarkData.records || [];
+
+          if (benchmarks.length === 0) {
+            statusText.textContent = "当前状态：分析完成，但暂无标杆数据。请先在 Streamlit 本地运行分析以初始化标杆数据。";
+            benchmarkGrid.classList.add("hidden");
+            return;
+          }
+
+          const compareResp = await fetch(`${backendUrl}/api/benchmark_compare`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ analysis: lastAnalysisData }),
+          });
+          const comparePayload = await compareResp.json();
+          if (!compareResp.ok) throw new Error(comparePayload.detail || `HTTP ${compareResp.status}`);
+
+          const comparison = comparePayload.comparison || [];
+          benchmarkComparisonTable.innerHTML = "";
+          benchmarkReferenceTable.innerHTML = "";
+
+          if (comparison.length > 0) {
+            const currentName = (lastPayload?.game?.name) || query || "当前分析";
+            let compHtml = '<table style="width:100%;border-collapse:collapse;font-size:14px;">';
+            compHtml += '<thead><tr style="border-bottom:2px solid var(--line);">';
+            compHtml += '<th style="text-align:left;padding:8px;">标杆</th>';
+            compHtml += '<th style="text-align:right;padding:8px;">质量 Δ</th>';
+            compHtml += '<th style="text-align:right;padding:8px;">CL Δ</th>';
+            compHtml += '<th style="text-align:right;padding:8px;">用户池 Δ</th>';
+            compHtml += '<th style="text-align:right;padding:8px;">销量 Δ</th>';
+            compHtml += '<th style="text-align:right;padding:8px;">SAO 差值</th>';
+            compHtml += '</tr></thead><tbody>';
+
+            comparison.forEach(c => {
+              const diffClass = (val) => {
+                const v = Number(val) || 0;
+                if (v > 0) return 'style="color:var(--accent);"';
+                if (v < 0) return 'style="color:var(--accent-2);"';
+                return '';
+              };
+              compHtml += '<tr style="border-bottom:1px solid var(--line);">';
+              compHtml += `<td style="padding:8px;font-weight:600;">${escapeHtml(c.benchmark_game)}</td>`;
+              compHtml += `<td style="padding:8px;text-align:right;" ${diffClass(c.quality_diff)}>${(Number(c.quality_diff) || 0) >= 0 ? '+' : ''}${Number(c.quality_diff).toFixed(2)}</td>`;
+              compHtml += `<td style="padding:8px;text-align:right;" ${diffClass(c.cl_diff)}>${(Number(c.cl_diff) || 0) >= 0 ? '+' : ''}${Number(c.cl_diff).toFixed(2)}</td>`;
+              compHtml += `<td style="padding:8px;text-align:right;" ${diffClass(c.pool_diff)}>${(Number(c.pool_diff) || 0) >= 0 ? '+' : ''}${formatNumber(c.pool_diff)}</td>`;
+              compHtml += `<td style="padding:8px;text-align:right;" ${diffClass(c.sales_diff)}>${(Number(c.sales_diff) || 0) >= 0 ? '+' : ''}${formatNumber(c.sales_diff)}</td>`;
+              compHtml += `<td style="padding:8px;text-align:right;" ${c.sao_diff !== null && diffClass(c.sao_diff)}>${c.sao_diff !== null ? ((Number(c.sao_diff) || 0) >= 0 ? '+' : '') + formatNumber(c.sao_diff) : 'N/A'}</td>`;
+              compHtml += '</tr>';
+            });
+            compHtml += '</tbody></table>';
+            compHtml += `<p style="margin-top:14px;font-size:14px;color:var(--muted);">
+              当前游戏：<strong>${escapeHtml(currentName)}</strong> — 销量预测：<strong>${formatNumber(lastAnalysisData?.sales)}</strong> 份
+              ${comparison.length > 0 ? ` — 对比 ${comparison.length} 个标杆` : ''}
+            </p>`;
+            benchmarkComparisonTable.innerHTML = compHtml;
+          }
+
+          // Render benchmark reference table
+          if (benchmarks.length > 0) {
+            let refHtml = '<table style="width:100%;border-collapse:collapse;font-size:14px;">';
+            refHtml += '<thead><tr style="border-bottom:2px solid var(--line);">';
+            refHtml += '<th style="text-align:left;padding:8px;">游戏</th>';
+            refHtml += '<th style="text-align:left;padding:8px;">品类</th>';
+            refHtml += '<th style="text-align:right;padding:8px;">质量分</th>';
+            refHtml += '<th style="text-align:right;padding:8px;">CL</th>';
+            refHtml += '<th style="text-align:right;padding:8px;">用户池</th>';
+            refHtml += '<th style="text-align:right;padding:8px;">销量</th>';
+            refHtml += '<th style="text-align:right;padding:8px;">SAO 上限</th>';
+            refHtml += '<th style="text-align:left;padding:8px;">来源</th>';
+            refHtml += '</tr></thead><tbody>';
+            benchmarks.forEach(b => {
+              refHtml += '<tr style="border-bottom:1px solid var(--line);">';
+              refHtml += `<td style="padding:8px;font-weight:600;">${escapeHtml(b.game_name)}</td>`;
+              refHtml += `<td style="padding:8px;color:var(--muted);font-size:13px;">${escapeHtml(b.genre_cluster || "")}</td>`;
+              refHtml += `<td style="padding:8px;text-align:right;">${Number(b.quality_score).toFixed(1)}</td>`;
+              refHtml += `<td style="padding:8px;text-align:right;">${Number(b.cl_score).toFixed(2)}</td>`;
+              refHtml += `<td style="padding:8px;text-align:right;">${formatNumber(b.user_pool)}</td>`;
+              refHtml += `<td style="padding:8px;text-align:right;">${formatNumber(b.sales)}</td>`;
+              refHtml += `<td style="padding:8px;text-align:right;">${b.sao_anchor ? formatNumber(b.sao_anchor) : "N/A"}</td>`;
+              refHtml += `<td style="padding:8px;color:var(--muted);font-size:13px;">${escapeHtml(b.source_label || "")}</td>`;
+              refHtml += '</tr>';
+            });
+            refHtml += '</tbody></table>';
+            benchmarkReferenceTable.innerHTML = refHtml;
+          }
+
+          benchmarkGrid.classList.remove("hidden");
+          statusText.textContent = "当前状态：快速分析 + 标杆对比完成。";
+        } catch (error) {
+          statusText.textContent = `当前状态：快速分析失败。${error.message}`;
+        }
+      });
+    }
+
     runButton.addEventListener("click", runAnalysis);
     healthButton.addEventListener("click", checkHealth);
     scenarioButton.addEventListener("click", runScenarioComparison);
@@ -1564,6 +2620,82 @@
         exportCSV();
       }
     });
+
+    // ── SteamDB Data Fetch ─────────────────────────────────────────────
+
+    const steamdbFetchBtn = document.getElementById("fetch-steamdb");
+    let currentSteamdbData = null;
+
+    async function fetchSteamdb(appId) {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      if (!backendUrl) {
+        statusText.textContent = "当前状态：请先填写后端地址。";
+        return;
+      }
+      if (!appId || appId === 0) {
+        statusText.textContent = "当前状态：无法获取 SteamDB 数据（无 App ID）。";
+        return;
+      }
+
+      window.localStorage.setItem(storageKey, backendUrl);
+      statusText.textContent = "当前状态：正在请求 SteamDB 数据...";
+      steamdbPanel.style.display = "block";
+      steamdbContent.innerHTML = "";
+      steamdbError.style.display = "none";
+
+      try {
+        const response = await fetch(`${backendUrl}/api/steamdb?app_id=${appId}`);
+        const data = await response.json();
+
+        if (!data.steamdb) {
+          // Fetch failed or no data
+          steamdbError.style.display = "flex";
+          steamdbErrorText.textContent = data.error || "未获取到 SteamDB 数据。可能是 SteamDB 反爬策略限制。";
+          currentSteamdbData = null;
+          return;
+        }
+
+        currentSteamdbData = data.steamdb;
+        steamdbError.style.display = "none";
+
+        const s = data.steamdb;
+        const fields = [
+          { label: "当前在线", value: formatNumber(s.current_players) },
+          { label: "24小时峰值", value: formatNumber(s.peak_24h) },
+          { label: "历史峰值", value: formatNumber(s.all_time_peak) },
+          { label: "最后30天峰值", value: formatNumber(s.last_30_days_peak || 0) },
+          { label: "关注者数", value: formatNumber(s.followers) },
+          { label: "SteamDB 评分", value: s.steamdb_rating ? `${s.steamdb_rating}%` : "N/A" },
+          { label: "好评数", value: formatNumber(s.positive_reviews) },
+          { label: "差评数", value: formatNumber(s.negative_reviews) },
+          { label: "日活排名", value: s.daily_active_users_rank ? `#${formatNumber(s.daily_active_users_rank)}` : "N/A" },
+          { label: "畅销排名", value: s.top_sellers_rank ? `#${formatNumber(s.top_sellers_rank)}` : "N/A" },
+          { label: "心愿单排名", value: s.wishlist_activity_rank ? `#${formatNumber(s.wishlist_activity_rank)}` : "N/A" },
+        ];
+
+        let html = "";
+        fields.forEach(f => {
+          html += `<div style="padding:12px;border-radius:12px;background:rgba(255,255,255,0.5);border:1px solid var(--line);">
+            <div style="font-size:11px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">${escapeHtml(f.label)}</div>
+            <div style="font-size:22px;font-weight:700;margin-top:2px;">${escapeHtml(f.value)}</div>
+          </div>`;
+        });
+        steamdbContent.innerHTML = html;
+        statusText.textContent = "当前状态：SteamDB 数据获取完成。";
+      } catch (error) {
+        steamdbError.style.display = "flex";
+        steamdbErrorText.textContent = `SteamDB 获取失败：${error.message}`;
+        currentSteamdbData = null;
+        statusText.textContent = `当前状态：SteamDB 获取失败。${error.message}`;
+      }
+    }
+
+    if (steamdbFetchBtn) {
+      steamdbFetchBtn.addEventListener("click", () => {
+        const appId = lastPayload?.game?.app_id || 0;
+        fetchSteamdb(appId);
+      });
+    }
 
     // ── Calibration Controls ────────────────────────────────────────────
 
@@ -1656,18 +2788,6 @@
         if (el) cfg[key] = parseFloat(el.value) || 0;
       });
       return cfg;
-    }
-
-    function loadCalibrationFromStorage() {
-      try {
-        const stored = localStorage.getItem(calibrationStorageKey);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          Object.keys(parsed).forEach(k => {
-            if (k in currentCalibration) currentCalibration[k] = parsed[k];
-          });
-        }
-      } catch (_) {}
     }
 
     function saveCalibrationToStorage() {
@@ -1780,6 +2900,426 @@
 
       resetCalibrationBtn.addEventListener("click", resetCalibration);
     }
+
+    // ── Helper: auto-fetch discussion data after analysis ────────────────
+
+    async function fetchDiscussionDataForGame(gameName) {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      if (!backendUrl || !gameName) return;
+
+      try {
+        const response = await fetch(`${backendUrl}/api/discussion`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ game_name: gameName, max_results: 10 }),
+        });
+        const data = await response.json();
+        if (!response.ok || data.results.length === 0) return;
+        // Store silently for potential display
+        currentDiscussionData = data.results;
+      } catch (_) {
+        // Silently fail — discussion data is supplementary
+      }
+    }
+
+    // ── Discussion Data Panel ──────────────────────────────────────────
+
+    const discussionGrid = document.getElementById("discussion-grid");
+    const discussionRunBtn = document.getElementById("discussion-run-btn");
+    const discussionContent = document.getElementById("discussion-content");
+    const discussionError = document.getElementById("discussion-error");
+    const discussionErrorText = document.getElementById("discussion-error-text");
+    const discussionSourcesList = document.getElementById("discussion-sources-list");
+    const discussionGameQuery = document.getElementById("discussion-game-query");
+    const discussionMaxResults = document.getElementById("discussion-max-results");
+    const discussionToggleBtn = document.getElementById("fetch-discussion");
+    let currentDiscussionData = null;
+
+    if (discussionToggleBtn) {
+      discussionToggleBtn.addEventListener("click", () => {
+        resultsGrid.classList.add("hidden");
+        scenarioGrid.classList.add("hidden");
+        recordListGrid.classList.add("hidden");
+        benchmarkGrid.classList.add("hidden");
+        calibrationGrid.classList.add("hidden");
+        discussionGrid.classList.remove("hidden");
+      });
+    }
+
+    async function fetchDiscussionData() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      const query = discussionGameQuery.value.trim();
+      const maxResults = parseInt(discussionMaxResults.value, 10) || 20;
+
+      if (!backendUrl) {
+        statusText.textContent = "当前状态：请先填写后端地址。";
+        return;
+      }
+      if (!query) {
+        statusText.textContent = "当前状态：请输入游戏名。";
+        return;
+      }
+
+      window.localStorage.setItem(storageKey, backendUrl);
+      statusText.textContent = "当前状态：正在获取讨论数据...";
+      discussionContent.innerHTML = '<p style="color:var(--muted);">加载中...</p>';
+      discussionError.style.display = "none";
+      discussionSourcesList.innerHTML = "";
+
+      try {
+        const response = await fetch(`${backendUrl}/api/discussion`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ game_name: query, max_results: maxResults }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || `HTTP ${response.status}`);
+        }
+
+        const results = data.results || [];
+        currentDiscussionData = results;
+
+        // Show source types
+        const sources = data.sources || [];
+        if (sources.length > 0) {
+          let sourcesHtml = '<span style="font-size:12px;color:var(--muted);margin-right:8px;">可用源：</span>';
+          sources.forEach(s => {
+            sourcesHtml += `<span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;background:rgba(31,122,82,0.1);color:var(--accent);font-weight:500;">${escapeHtml(s)}</span>`;
+          });
+          discussionSourcesList.innerHTML = sourcesHtml;
+        }
+
+        if (results.length === 0) {
+          discussionContent.innerHTML = '<p style="color:var(--muted);">未获取到讨论数据。可能是该游戏在所有平台上都没有足够的讨论。</p>';
+          statusText.textContent = "当前状态：讨论数据获取完成（无数据）。";
+          return;
+        }
+
+        // Render each source's results
+        let html = "";
+        results.forEach((r) => {
+          if (r.error_message) {
+            html += `<div class="discussion-source-card">
+              <div class="discussion-source-header">
+                <span class="discussion-source-name">${escapeHtml(r.source_type || "Unknown")}</span>
+                <span class="discussion-source-type">获取失败</span>
+              </div>
+              <div class="discussion-source-error">⚠️ ${escapeHtml(r.error_message)}</div>
+            </div>`;
+            return;
+          }
+
+          const items = r.normalized || [];
+          html += `<div class="discussion-source-card">
+            <div class="discussion-source-header">
+              <span class="discussion-source-name">${escapeHtml(r.source_type || "Unknown")}</span>
+              <span class="discussion-source-type">${items.length} 条结果</span>
+            </div>`;
+
+          if (items.length === 0) {
+            html += `<div style="color:var(--muted);font-size:13px;">该平台下未找到相关讨论。</div>`;
+          } else {
+            items.forEach((item) => {
+              html += `<div class="discussion-item">
+                <div class="discussion-item-title">${escapeHtml(item.title || "无标题")}</div>
+                <div class="discussion-item-meta">
+                  <span>👍 ${formatNumber(item.upvotes || 0)}</span>
+                  <span>💬 ${formatNumber(item.comments || 0)}</span>
+                  <span>🕐 ${escapeHtml(item.published || "N/A")}</span>
+                </div>`;
+              if (item.body) {
+                html += `<div class="discussion-item-body">${escapeHtml(item.body.substring(0, 300))}${item.body.length > 300 ? "..." : ""}</div>`;
+              }
+              if (item.url) {
+                html += `<div class="discussion-item-url"><a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.url)}</a></div>`;
+              }
+              html += `</div>`;
+            });
+          }
+
+          html += `</div>`;
+        });
+
+        discussionContent.innerHTML = html;
+        statusText.textContent = "当前状态：讨论数据获取完成。";
+      } catch (error) {
+        discussionError.style.display = "flex";
+        discussionErrorText.textContent = `讨论数据获取失败：${error.message}`;
+        discussionContent.innerHTML = "";
+        statusText.textContent = `当前状态：讨论数据获取失败。${error.message}`;
+      }
+    }
+
+    if (discussionRunBtn) {
+      discussionRunBtn.addEventListener("click", fetchDiscussionData);
+    }
+
+    // ── End Discussion Data Panel ──────────────────────────────────────
+
+    // ── Calibration Page ────────────────────────────────────────────────
+
+    const navCalibration = document.getElementById("nav-calibration");
+    const calibrationGrid = document.getElementById("calibration-grid");
+    const calTabsEl = document.getElementById("cal-tabs");
+    const calGameDetail = document.getElementById("cal-game-detail");
+    const calGameTitle = document.getElementById("cal-game-title");
+    const calGameDesc = document.getElementById("cal-game-desc");
+    const calManualInputs = document.getElementById("cal-manual-inputs");
+    const calSummaryCards = document.getElementById("cal-summary-cards");
+    const calDeviationTable = document.getElementById("cal-deviation-table");
+    const runCalAllBtn = document.getElementById("run-cal-all");
+    const saveCalResultsBtn = document.getElementById("save-cal-results");
+
+    let calGames = [];
+    let calResults = [];
+    let currentCalGameId = null;
+    let tempCalInputs = {};
+
+    // Navigation: open calibration page
+    if (navCalibration) {
+      navCalibration.addEventListener("click", (e) => {
+        e.preventDefault();
+        resultsGrid.classList.add("hidden");
+        scenarioGrid.classList.add("hidden");
+        recordListGrid.classList.add("hidden");
+        benchmarkGrid.classList.add("hidden");
+        calibrationGrid.classList.remove("hidden");
+        if (calGames.length === 0) {
+          loadCalGames();
+        }
+      });
+    }
+
+    async function loadCalGames() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      if (!backendUrl) {
+        statusText.textContent = "当前状态：请先填写后端地址以加载校准数据。";
+        return;
+      }
+      window.localStorage.setItem(storageKey, backendUrl);
+      try {
+        const resp = await fetch(`${backendUrl}/api/cal_games`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        calGames = data.games || [];
+        renderCalTabs();
+      } catch (error) {
+        statusText.textContent = `当前状态：校准游戏加载失败。${error.message}`;
+      }
+    }
+
+    function renderCalTabs() {
+      calTabsEl.innerHTML = "";
+      calGames.forEach((g) => {
+        const btn = document.createElement("button");
+        btn.className = "cal-tab" + (g.id === currentCalGameId ? " active" : "");
+        btn.textContent = g.game_name;
+        btn.addEventListener("click", () => selectCalGame(g.id));
+        calTabsEl.appendChild(btn);
+      });
+    }
+
+    function selectCalGame(gameId) {
+      currentCalGameId = gameId;
+      const game = calGames.find((g) => g.id === gameId);
+      if (!game) return;
+      renderCalTabs();
+      calGameDetail.style.display = "block";
+      calGameTitle.textContent = game.game_name;
+      calGameTitle.style.marginBottom = "4px";
+      calGameDesc.textContent = game.description;
+      // Render manual inputs
+      calManualInputs.innerHTML = "";
+      const allKeys = Object.keys(DEFAULT_INPUTS).filter(
+        (k) => !["peak_dau", "median_line", "user_pool_override", "platform_fit", "region_fit", "price_fit",
+                 "overlap_adjustment", "discussion_manual_score", "persistence_manual_score", "analyst_adjustment"].includes(k)
+      );
+      allKeys.forEach((key) => {
+        const val = game.manual_inputs[key] ?? DEFAULT_INPUTS[key];
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = `
+          <label style="display:block;font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;">${key}</label>
+          <input class="input" type="number" id="cal-mi-${key}" value="${typeof val === 'boolean' ? (val ? 1 : 0) : val}" min="0" max="${key.includes('factor') || key.includes('base') ? 1 : 10}" step="0.05" style="font-size:16px;width:100%;">
+        `;
+        const input = wrapper.querySelector("input");
+        input.addEventListener("input", () => {
+          if (!tempCalInputs[gameId]) tempCalInputs[gameId] = {};
+          tempCalInputs[gameId][key] = parseFloat(input.value) || 0;
+        });
+        calManualInputs.appendChild(wrapper);
+      });
+    }
+
+    async function runCalAll() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      if (!backendUrl) {
+        statusText.textContent = "当前状态：请先填写后端地址。";
+        return;
+      }
+      window.localStorage.setItem(storageKey, backendUrl);
+      statusText.textContent = "当前状态：正在对所有标杆运行计算...";
+      try {
+        const resp = await fetch(`${backendUrl}/api/calibrate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ game_ids: null }),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        calResults = data.results || [];
+        renderCalResults();
+        statusText.textContent = "当前状态：校准计算完成。";
+      } catch (error) {
+        statusText.textContent = `当前状态：校准计算失败。${error.message}`;
+      }
+    }
+
+    async function runCalGame(gameId) {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      if (!backendUrl) return;
+      window.localStorage.setItem(storageKey, backendUrl);
+      try {
+        const resp = await fetch(`${backendUrl}/api/calibrate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ game_ids: [gameId] }),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        // Merge results: replace existing or add new
+        data.results.forEach((r) => {
+          const idx = calResults.findIndex((rr) => rr.game_id === r.game_id);
+          if (idx >= 0) calResults[idx] = r;
+          else calResults.push(r);
+        });
+        renderCalResults();
+      } catch (error) {
+        statusText.textContent = `当前状态：校准计算失败。${error.message}`;
+      }
+    }
+
+    function renderCalResults() {
+      if (calResults.length === 0) {
+        calDeviationTable.innerHTML = '<p style="color:var(--muted);">尚未运行校准计算。点击「对所有标杆运行计算」开始。</p>';
+        calSummaryCards.style.display = "none";
+        return;
+      }
+
+      // Summary cards
+      calSummaryCards.style.display = "grid";
+      calSummaryCards.innerHTML = "";
+      calResults.forEach((r) => {
+        const card = document.createElement("article");
+        card.className = "result-card";
+        card.style.cursor = "pointer";
+        card.innerHTML = `
+          <div class="result-title">${escapeHtml(r.game_name)}</div>
+          <div style="font-size:14px;line-height:1.6;">
+            <div>销量预测: <strong>${formatNumber(r.computed.sales)}</strong> 份</div>
+            <div>质量分: <strong>${Number(r.computed.quality_score).toFixed(1)}</strong> (${Math.round((r.computed.quality_confidence||0)*100)}% 置信度)</div>
+            <div>CL: <strong>${Number(r.computed.cl_score).toFixed(2)}</strong></div>
+            <div>用户池: <strong>${formatNumber(r.computed.user_pool)}</strong></div>
+          </div>
+        `;
+        card.addEventListener("click", () => {
+          const game = calGames.find((g) => g.id === r.game_id);
+          if (game) selectCalGame(game.id);
+          showDeviationDetail(r);
+        });
+        calSummaryCards.appendChild(card);
+      });
+
+      // Deviation table
+      showDeviationTable();
+    }
+
+    function showDeviationTable() {
+      if (calResults.length === 0) return;
+      let html = '<table style="width:100%;border-collapse:collapse;font-size:14px;">';
+      html += '<thead><tr style="border-bottom:2px solid var(--line);">';
+      html += '<th style="text-align:left;padding:8px;">标杆</th>';
+      html += '<th style="text-align:right;padding:8px;">预测销量</th>';
+      html += '<th style="text-align:right;padding:8px;">偏差%</th>';
+      html += '<th style="text-align:right;padding:8px;">质量偏差%</th>';
+      html += '<th style="text-align:right;padding:8px;">CL偏差%</th>';
+      html += '<th style="text-align:right;padding:8px;">池偏差%</th>';
+      html += '</tr></thead><tbody>';
+      calResults.forEach((r) => {
+        const devClass = (v) => v >= 0 ? 'cal-deviation-positive' : 'cal-deviation-negative';
+        const sign = (v) => v >= 0 ? '+' : '';
+        html += '<tr style="border-bottom:1px solid var(--line);">';
+        html += `<td style="padding:8px;font-weight:600;">${escapeHtml(r.game_name)}</td>`;
+        html += `<td style="padding:8px;text-align:right;">${formatNumber(r.computed.sales)}</td>`;
+        html += `<td style="padding:8px;text-align:right;font-weight:600;" class="${devClass(r.deviation.sales_pct)}">${sign(r.deviation.sales_pct)}${r.deviation.sales_pct}%</td>`;
+        html += `<td style="padding:8px;text-align:right;" class="${devClass(r.deviation.quality_pct)}">${sign(r.deviation.quality_pct)}${r.deviation.quality_pct}%</td>`;
+        html += `<td style="padding:8px;text-align:right;" class="${devClass(r.deviation.cl_pct)}">${sign(r.deviation.cl_pct)}${r.deviation.cl_pct}%</td>`;
+        html += `<td style="padding:8px;text-align:right;" class="${devClass(r.deviation.pool_pct)}">${sign(r.deviation.pool_pct)}${r.deviation.pool_pct}%</td>`;
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+
+      // Add summary note
+      const avgSalesDev = calResults.reduce((s, r) => s + r.deviation.sales_pct, 0) / calResults.length;
+      const avgDevClass = avgSalesDev >= 0 ? 'cal-deviation-positive' : 'cal-deviation-negative';
+      html += `<p style="margin-top:14px;font-size:14px;">
+        平均销量偏差：<strong class="${avgDevClass}">${avgSalesDev >= 0 ? '+' : ''}${avgSalesDev.toFixed(1)}%</strong>
+        ${avgSalesDev > 2 ? ' — 模型系统性高估，需下调参数' : avgSalesDev < -2 ? ' — 模型系统性低估，需上调参数' : ' — 偏差在可接受范围内'}
+      </p>`;
+      calDeviationTable.innerHTML = html;
+    }
+
+    function showDeviationDetail(r) {
+      // Show detailed deviation visualization for a single game
+      calDeviationTable.innerHTML = "";
+      const game = calGames.find((g) => g.id === r.game_id);
+      if (!game) return;
+
+      const fields = [
+        { key: "sales", label: "销量", unit: " 份", computed: r.computed.sales, expected: (game.expected_sales_range[0] + game.expected_sales_range[1]) / 2 },
+        { key: "quality", label: "质量分", unit: "", computed: r.computed.quality_score, expected: (game.expected_quality_range[0] + game.expected_quality_range[1]) / 2 },
+        { key: "cl", label: "CL", unit: "", computed: r.computed.cl_score, expected: (game.expected_cl_range[0] + game.expected_cl_range[1]) / 2 },
+        { key: "pool", label: "用户池", unit: "", computed: r.computed.user_pool, expected: (game.expected_pool_range[0] + game.expected_pool_range[1]) / 2 },
+      ];
+
+      let html = `<h3 style="margin:0 0 12px;font-size:18px;">${escapeHtml(r.game_name)} — 偏差详情</h3>`;
+      fields.forEach((f) => {
+        const pct = ((f.computed - f.expected) / f.expected * 100);
+        const devClass = pct >= 0 ? 'positive' : 'negative';
+        const barWidth = Math.min(Math.abs(pct), 100);
+        html += `<div style="margin-bottom:14px;">`;
+        html += `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">`;
+        html += `<span style="font-weight:600;">${escapeHtml(f.label)}</span>`;
+        html += `<span>${formatNumber(f.computed)}${f.unit} <span style="color:var(--muted);">vs 预期 ${(typeof f.expected === 'number' && f.expected > 1000) ? formatNumber(f.expected) : Number(f.expected).toFixed(1)}${f.unit}</span> <span class="${pct >= 0 ? 'cal-deviation-positive' : 'cal-deviation-negative'}" style="font-weight:600;">${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%</span></span>`;
+        html += `</div>`;
+        html += `<div class="cal-deviation-bar"><div class="cal-deviation-fill ${devClass}" style="width:${barWidth}%"></div></div>`;
+        html += `</div>`;
+      });
+      calDeviationTable.innerHTML = html;
+    }
+
+    async function saveCalResultsToBackend() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      if (!backendUrl || calResults.length === 0) {
+        statusText.textContent = "当前状态：请先运行校准计算。";
+        return;
+      }
+      window.localStorage.setItem(storageKey, backendUrl);
+      try {
+        const resp = await fetch(`${backendUrl}/api/calibrate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ results: calResults }),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        statusText.textContent = "当前状态：校准结果已保存。";
+      } catch (error) {
+        statusText.textContent = `当前状态：保存失败。${error.message}`;
+      }
+    }
+
+    runCalAllBtn.addEventListener("click", runCalAll);
+    if (saveCalResultsBtn) saveCalResultsBtn.addEventListener("click", saveCalResultsToBackend);
   </script>
 </body>
 </html>
