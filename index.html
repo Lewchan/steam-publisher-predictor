@@ -1,4 +1,4 @@
-<!-- Webber 2026/06/11 迭代完成: 讨论数据面板 + 跨平台讨论源展示 -->
+<!-- Webber 2026/06/11 迭代完成: 讨论数据质量可视化 + 质量置信度增强 + 讨论数据进度条 + 快速讨论获取按钮 + 移动端讨论面板优化 + 分析结果可视化增强 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1003,6 +1003,124 @@
       margin-top: 4px;
     }
 
+    /* ── SteamDB Batch styles ──────────────────────────────────────────── */
+    .steamdb-batch-input {
+      width: 100%;
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .steamdb-batch-result-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.5);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .steamdb-batch-result-card.has-error {
+      border-color: rgba(213, 91, 45, 0.3);
+      background: rgba(213, 91, 45, 0.05);
+    }
+
+    .steamdb-batch-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .steamdb-batch-game-name {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .steamdb-batch-error {
+      color: var(--accent-2);
+      font-size: 13px;
+    }
+
+    .steamdb-batch-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+    }
+
+    .steamdb-batch-stat {
+      padding: 8px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.4);
+      border: 1px solid var(--line);
+    }
+
+    .steamdb-batch-stat-label {
+      font-size: 11px;
+      font-family: IBM Plex Mono, monospace;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+      margin-bottom: 4px;
+    }
+
+    /* ── Discussion quality contribution styles ──────────────────────── */
+    .disc-quality-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .disc-quality-card {
+      padding: 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.5);
+      border: 1px solid var(--line);
+    }
+
+    .disc-quality-card.partial {
+      border-color: rgba(218, 169, 45, 0.4);
+      background: rgba(218, 169, 45, 0.05);
+    }
+
+    .disc-quality-card.complete {
+      border-color: rgba(31, 122, 82, 0.4);
+      background: rgba(31, 122, 82, 0.05);
+    }
+
+    .disc-quality-card.empty {
+      border-color: rgba(213, 91, 45, 0.3);
+      background: rgba(213, 91, 45, 0.05);
+    }
+
+    .disc-quality-label {
+      font-size: 11px;
+      font-family: IBM Plex Mono, monospace;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .disc-quality-value {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .disc-quality-detail {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .steamdb-batch-stat-value {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    /* ── End SteamDB Batch styles ──────────────────────────────────────── */
+
     .missing-tag {
       display: inline-block;
       padding: 2px 8px;
@@ -1011,6 +1129,126 @@
       font-size: 12px;
       margin-right: 4px;
       margin-bottom: 4px;
+    }
+
+    /* ── Discussion quality progress bar ──────────────────────────── */
+    .disc-progress-track {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(16, 34, 24, 0.08);
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .disc-progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 400ms ease;
+    }
+    .disc-progress-fill.high { background: linear-gradient(90deg, var(--accent), #2a9d6a); }
+    .disc-progress-fill.mid { background: linear-gradient(90deg, #d4a017, #e8b830); }
+    .disc-progress-fill.low { background: linear-gradient(90deg, var(--accent-2), #e07050); }
+
+    /* ── Discussion source mini-tag ───────────────────────────────── */
+    .disc-source-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-family: IBM Plex Mono, monospace;
+      font-weight: 500;
+      margin: 2px;
+    }
+    .disc-source-tag.success { background: rgba(31,122,82,0.12); color: var(--accent); }
+    .disc-source-tag.error { background: rgba(213,91,45,0.12); color: var(--accent-2); }
+
+    /* ── Analysis result visualization ────────────────────────────── */
+    .result-viz-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .result-viz-label {
+      width: 100px;
+      font-size: 13px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .result-viz-track {
+      flex: 1;
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(16, 34, 24, 0.06);
+      overflow: hidden;
+    }
+    .result-viz-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 500ms ease;
+    }
+    .result-viz-value {
+      width: 80px;
+      text-align: right;
+      font-size: 13px;
+      font-family: IBM Plex Mono, monospace;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    /* ── Discussion loading spinner ───────────────────────────────── */
+    .disc-spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--line);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: disc-spin 0.7s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes disc-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Discussion export button group ───────────────────────────── */
+    .disc-export-group {
+      display: inline-flex;
+      gap: 8px;
+    }
+
+    /* ── Quick analysis button ────────────────────────────────────── */
+    .quick-btn {
+      font-size: 14px;
+    }
+
+    /* ── Responsive: 640px ────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .hero-actions {
+        flex-direction: column;
+      }
+      .hero-actions .button {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+      .result-viz-label {
+        width: 70px;
+        font-size: 12px;
+      }
+      .result-viz-value {
+        width: 60px;
+        font-size: 12px;
+      }
+      .disc-quality-grid {
+        grid-template-columns: 1fr 1fr;
+      }
     }
   </style>
 </head>
@@ -1024,9 +1262,10 @@
         用来辅助评估一款游戏在 Steam 上的潜在销量与发行强度。
       </p>
       <div class="hero-actions">
-        <a class="button button-primary" href="https://github.com/Lewchan/steam-publisher-predictor" target="_blank" rel="noreferrer">查看 GitHub 仓库</a>
-        <a class="button button-secondary" id="nav-calibration" type="button">📊 校准面板</a>
-        <a class="button button-secondary" href="./README.md">查看项目说明</a>
+        <a class="button button-primary quick-btn" href="https://github.com/Lewchan/steam-publisher-predictor" target="_blank" rel="noreferrer">查看 GitHub 仓库</a>
+        <a class="button button-secondary quick-btn" id="nav-calibration" type="button">📊 校准面板</a>
+        <a class="button button-secondary quick-btn" id="quick-discussion" type="button">💬 快速讨论获取</a>
+        <a class="button button-secondary quick-btn" href="./README.md">查看项目说明</a>
       </div>
       <p class="copy" style="margin-top:12px;font-size:14px;">
         💡 提示：下方调试面板支持直接请求后端 API，也可点击「场景对比」运行保守/基准/乐观三方案。
@@ -1121,7 +1360,9 @@
           <button class="button button-secondary" id="save-record" type="button">保存记录</button>
           <button class="button button-secondary" id="load-records" type="button">查看历史</button>
           <button class="button button-secondary" id="export-report" type="button">导出数据</button>
+          <button class="button button-secondary" id="export-full-report" type="button">📋 导出完整报告</button>
           <button class="button button-secondary" id="fetch-steamdb" type="button">📊 SteamDB 数据</button>
+          <button class="button button-secondary" id="fetch-steamdb-batch" type="button">📊 SteamDB 批量</button>
           <button class="button button-secondary" id="fetch-discussion" type="button">💬 讨论数据</button>
           <div class="pill" id="health-pill">后端健康状态：未检查</div>
         </div>
@@ -1322,12 +1563,44 @@
             <button class="button button-primary" id="discussion-run-btn" type="button">获取讨论数据</button>
           </div>
           <div id="discussion-sources-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;"></div>
+          <div class="status-row" style="margin-bottom:16px;">
+            <button class="button button-secondary" id="discussion-export-json" type="button">📄 导出 JSON</button>
+            <button class="button button-secondary" id="discussion-export-csv" type="button">📊 导出 CSV</button>
+            <button class="button button-secondary" id="discussion-export-report" type="button">📋 导出报告</button>
+          </div>
           <div id="discussion-content" style="overflow-x:auto;"></div>
+          <!-- Discussion quality contribution summary (linked to quality scoring) -->
+          <div id="discussion-quality-summary" style="margin-top:18px;display:none;">
+            <div style="font-size:16px;font-weight:700;margin-bottom:10px;color:var(--accent);">📊 讨论数据 → 质量评分贡献</div>
+            <div id="discussion-quality-body" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+          </div>
           <div id="discussion-error" class="warning-banner low-confidence" style="display:none;margin-top:14px;">
             <span class="warning-icon">⚠️</span>
             <div class="warning-content">
               <div class="warning-title">讨论数据获取失败</div>
               <div class="warning-detail" id="discussion-error-text"></div>
+            </div>
+          </div>
+        </article>
+    </section>
+
+    <section class="results-grid hidden" id="steamdb-batch-grid">
+        <article class="result-card full">
+          <div class="result-title">SteamDB 批量获取</div>
+          <p class="copy" style="margin-bottom:14px;">
+            批量获取多个游戏的 SteamDB 数据。每行一个 App ID 或游戏名（逗号分隔），
+            系统将逐个获取公开数据。数据可能因 SteamDB 反爬策略而部分不可用。
+          </p>
+          <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;">
+            <textarea class="steamdb-batch-input input" id="steamdb-batch-input" placeholder="输入 App ID 列表，逗号分隔&#10;例如：2379780,648800,1091540" style="flex:1;min-height:80px;">2379780,648800,1091540</textarea>
+            <button class="button button-primary" id="steamdb-batch-run-btn" type="button" style="align-self:flex-end;">批量获取</button>
+          </div>
+          <div id="steamdb-batch-content" style="overflow-x:auto;"></div>
+          <div id="steamdb-batch-error" class="warning-banner low-confidence" style="display:none;margin-top:14px;">
+            <span class="warning-icon">⚠️</span>
+            <div class="warning-content">
+              <div class="warning-title">批量获取失败</div>
+              <div class="warning-detail" id="steamdb-batch-error-text"></div>
             </div>
           </div>
         </article>
@@ -1355,6 +1628,11 @@
             将当前分析结果与已知销售数据进行对比，了解当前估值的相对水平。
             SAO_Anchor 为虚拟上限参考值，非实际市场样本。差异 = 当前结果 − 标杆值。
           </p>
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;">
+            <div class="label" style="flex:1;">标杆对比数据</div>
+            <button class="button button-secondary" id="benchmark-export-json" type="button" style="font-size:12px;padding:4px 12px;" disabled>📄 导出 JSON</button>
+            <button class="button button-secondary" id="benchmark-export-csv" type="button" style="font-size:12px;padding:4px 12px;" disabled>📊 导出 CSV</button>
+          </div>
           <div id="benchmark-comparison-table" style="overflow-x:auto;"></div>
         </article>
         <article class="result-card full">
@@ -1378,6 +1656,7 @@
     const saveRecordButton = document.getElementById("save-record");
     const loadRecordsButton = document.getElementById("load-records");
     const exportReportButton = document.getElementById("export-report");
+    const exportFullReportButton = document.getElementById("export-full-report");
     const healthPill = document.getElementById("health-pill");
     const backendUrlInput = document.getElementById("backend-url");
     const gameQueryInput = document.getElementById("game-query");
@@ -1685,6 +1964,13 @@
         ["缺失源", Array.isArray(quality.missing_quality_sources) && quality.missing_quality_sources.length ? quality.missing_quality_sources.join(", ") : "无"]
       ]);
 
+      // Quick link to discussion data panel
+      const qualityQuickLink = document.createElement("div");
+      qualityQuickLink.style.cssText = "margin-top:10px;font-size:13px;";
+      const gameNameForDiscussion = game.name || payload.query || "";
+      qualityQuickLink.innerHTML = `<button class="button button-secondary" style="font-size:12px;padding:6px 12px;" onclick="navigateToDiscussionPanel('${escapeHtml(gameNameForDiscussion)}')">📊 前往讨论数据面板 →</button>`;
+      qualitySummary.appendChild(qualityQuickLink);
+
       const poolMatches = Array.isArray(pool.matches) && pool.matches.length
         ? pool.matches.map(item => `${item.genre_name} (${formatNumber(item.weighted_pool)})`).join(" / ")
         : "暂无映射";
@@ -1754,6 +2040,10 @@
           html += `</span></div>`;
         }
         html += `</div></div>`;
+        // Always add hint about discussion data for low confidence
+        html += `<div style="margin-top:10px;padding:10px 14px;border-radius:10px;background:rgba(218,169,45,0.08);border:1px solid rgba(218,169,45,0.25);font-size:13px;color:#8a6d14;">
+          💡 建议操作：前往「💬 讨论数据」面板获取各平台讨论数据 → 讨论强度信号将自动纳入质量评分 → 提升置信度
+        </div>`;
         warningContent.innerHTML = html;
       } else if (confidencePct < 70) {
         // Medium confidence warning
@@ -1770,6 +2060,8 @@
           });
           html += `</span></div>`;
         }
+        // Add suggestion to check discussion data
+        html += `<div style="margin-top:8px;font-size:12px;color:var(--muted);">💡 提示：可在「💬 讨论数据」面板中获取各平台讨论数据，这会影响讨论强度信号和最终质量评分。</div>`;
         html += `</div></div>`;
         warningContent.innerHTML = html;
       } else {
@@ -2020,6 +2312,9 @@
         // Step 1: Load benchmark data
         const benchmarkData = await loadBenchmarkData();
         const benchmarks = benchmarkData.records || [];
+        // Store for export
+        lastBenchmarkData = benchmarkData;
+
         benchmarkReferenceTable.innerHTML = "";
 
         if (benchmarks.length === 0) {
@@ -2069,6 +2364,8 @@
         }
 
         const comparison = comparePayload.comparison || [];
+        // Store for export
+        lastBenchmarkComparison = comparison;
         benchmarkComparisonTable.innerHTML = "";
 
         if (comparison.length === 0) {
@@ -2117,8 +2414,13 @@
 
         benchmarkGrid.classList.remove("hidden");
         statusText.textContent = "当前状态：标杆对比完成。";
+        // Enable export buttons
+        if (benchmarkExportJsonBtn) benchmarkExportJsonBtn.disabled = false;
+        if (benchmarkExportCsvBtn) benchmarkExportCsvBtn.disabled = false;
       } catch (error) {
         statusText.textContent = `当前状态：标杆对比失败。${error.message}`;
+        lastBenchmarkComparison = null;
+        lastBenchmarkData = null;
         benchmarkGrid.classList.add("hidden");
       }
     }
@@ -2365,6 +2667,309 @@
     }
 
     // ── Export Report ────────────────────────────────────────────────────
+    // Iteration 2026/06/11: Webber — Add comprehensive exportable report view
+
+    /**
+     * Generate a complete, formatted HTML report from analysis data.
+     * Includes game info, all breakdowns, benchmark comparison, and manual inputs.
+     */
+    function generateReportHTML(data, benchmarkComparison, benchmarkData) {
+      const game = data.game || {};
+      const analysis = data.analysis || {};
+      const quality = analysis.quality || {};
+      const pool = analysis.user_pool || {};
+      const mi = getManualInputsPayload();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+
+      function fmt(val) {
+        const n = Number(val || 0);
+        if (!Number.isFinite(n)) return "N/A";
+        return new Intl.NumberFormat("zh-CN").format(Math.round(n));
+      }
+
+      function pct(v) { return v ? `${Math.round(v * 100)}%` : "0%"; }
+      function esc(s) { return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+      // Build game info rows
+      let gameRows = "";
+      gameRows += tr("游戏名称", esc(game.name || data.query || "Unknown"));
+      gameRows += tr("Steam App ID", esc(game.app_id ?? "N/A"));
+      gameRows += tr("价格", game.price_usd ? `$${Number(game.price_usd).toFixed(2)}` : "N/A");
+      gameRows += tr("评论数", fmt(game.review_count));
+      gameRows += tr("评分", esc(game.review_score ?? "N/A"));
+      gameRows += tr("发售日期", esc(game.release_date || "N/A"));
+      gameRows += tr("标签", esc(Array.isArray(game.steam_tags) ? game.steam_tags.join(" / ") : "N/A"));
+      gameRows += tr("类别", esc(Array.isArray(game.categories) ? game.categories.join(" / ") : "N/A"));
+      gameRows += tr("开发者", esc(Array.isArray(game.developer_names) ? game.developer_names.join(" / ") : "N/A"));
+      gameRows += tr("发行商", esc(Array.isArray(game.publisher_names) ? game.publisher_names.join(" / ") : "N/A"));
+
+      // Build quality breakdown
+      let qualityRows = "";
+      qualityRows += tr("质量分", `${quality.quality_score ? Number(quality.quality_score).toFixed(2) : "0.00"} / 10`);
+      qualityRows += tr("质量置信度", pct(quality.quality_confidence));
+      qualityRows += tr("评分强度", quality.rating_strength ? Number(quality.rating_strength).toFixed(2) : "0.00");
+      qualityRows += tr("评分置信度", pct(quality.rating_confidence));
+      qualityRows += tr("证明强度", quality.proof_strength ? Number(quality.proof_strength).toFixed(2) : "0.00");
+      qualityRows += tr("讨论数量信号", quality.discussion_count_signal ? Number(quality.discussion_count_signal).toFixed(2) : "0.00");
+      qualityRows += tr("讨论互动信号", quality.discussion_engagement_signal ? Number(quality.discussion_engagement_signal).toFixed(2) : "0.00");
+      qualityRows += tr("讨论情绪信号", quality.discussion_sentiment_signal ? Number(quality.discussion_sentiment_signal).toFixed(2) : "0.00");
+      qualityRows += tr("讨论强度", quality.discussion_strength ? Number(quality.discussion_strength).toFixed(2) : "0.00");
+      qualityRows += tr("持续性", quality.persistence_strength ? Number(quality.persistence_strength).toFixed(2) : "0.00");
+      qualityRows += tr("分析师调整", quality.analyst_adjustment ? Number(quality.analyst_adjustment).toFixed(2) : "0.00");
+      if (quality.missing_quality_sources && quality.missing_quality_sources.length) {
+        qualityRows += tr("缺失数据源", esc(quality.missing_quality_sources.join(", ")));
+      }
+
+      // Build user pool breakdown
+      let poolRows = "";
+      poolRows += tr("最终用户池", `${fmt(pool.estimated_user_pool)} 人`);
+      poolRows += tr("加权品类和", fmt(pool.weighted_genre_sum));
+      poolRows += tr("重叠修正", pool.overlap_adjustment ? Number(pool.overlap_adjustment).toFixed(2) : "0.00");
+      poolRows += tr("平台修正", pool.platform_fit ? Number(pool.platform_fit).toFixed(2) : "0.00");
+      poolRows += tr("区域修正", pool.region_fit ? Number(pool.region_fit).toFixed(2) : "0.00");
+      poolRows += tr("价格修正", pool.price_fit ? Number(pool.price_fit).toFixed(2) : "0.00");
+      if (pool.matches && pool.matches.length) {
+        poolRows += tr("命中品类", esc(pool.matches.map(m => `${m.genre_name}(${fmt(m.weighted_pool)})`).join(" / ")));
+      }
+
+      // Build CL breakdown
+      let clRows = "";
+      clRows += tr("CL 原始值", fmt(analysis.cl_base_raw));
+      clRows += tr("CL 标准化", analysis.cl_base ? Number(analysis.cl_base).toFixed(6) : "0.000000");
+      clRows += tr("增幅标签总和", analysis.amplification_tag_total ? Number(analysis.amplification_tag_total).toFixed(2) : "0.00");
+      clRows += tr("Showmanship 原始", analysis.showmanship_raw ? Number(analysis.showmanship_raw).toFixed(4) : "0.0000");
+      clRows += tr("Showmanship 生效", analysis.showmanship_effect ? Number(analysis.showmanship_effect).toFixed(4) : "0.0000");
+      clRows += tr("品牌系数", analysis.brand_factor ? Number(analysis.brand_factor).toFixed(4) : "0.0000");
+      clRows += tr("CL 原始计算", analysis.cl_raw ? Number(analysis.cl_raw).toFixed(4) : "0.0000");
+      clRows += tr("CL 得分（含上限）", analysis.cl_score ? Number(analysis.cl_score).toFixed(4) : "0.0000");
+
+      // Build sales summary
+      let salesRows = "";
+      salesRows += tr("销量预测", `${fmt(analysis.sales)} 份`);
+      salesRows += tr("CL", analysis.cl_score ? Number(analysis.cl_score).toFixed(2) : "0.00");
+      salesRows += tr("基础转化", analysis.base_conversion ? Number(analysis.base_conversion).toFixed(4) : "0.0000");
+      salesRows += tr("用户池", fmt(pool.estimated_user_pool));
+      salesRows += tr("长尾年销量", analysis.annual_long_tail_sales ? `${fmt(analysis.annual_long_tail_sales)} 份` : "N/A");
+
+      // Build manual inputs
+      let miRows = "";
+      const allMIKeys = Object.keys(mi);
+      if (allMIKeys.length) {
+        allMIKeys.forEach(k => { miRows += tr(k, String(mi[k])); });
+      } else {
+        miRows = "<tr><td colspan='2' style='color:var(--muted);'>使用默认值</td></tr>";
+      }
+
+      // Build benchmark comparison
+      let benchHTML = "";
+      if (benchmarkComparison && benchmarkComparison.length) {
+        benchHTML += '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px;">';
+        benchHTML += '<thead><tr style="border-bottom:2px solid #e0e0e0;">';
+        benchHTML += '<th style="text-align:left;padding:8px;">标杆</th>';
+        benchHTML += '<th style="text-align:right;padding:8px;">质量 Δ</th>';
+        benchHTML += '<th style="text-align:right;padding:8px;">CL Δ</th>';
+        benchHTML += '<th style="text-align:right;padding:8px;">用户池 Δ</th>';
+        benchHTML += '<th style="text-align:right;padding:8px;">销量 Δ</th>';
+        benchHTML += '<th style="text-align:right;padding:8px;">SAO 差值</th>';
+        benchHTML += '</tr></thead><tbody>';
+        benchmarkComparison.forEach(c => {
+          const dC = (v) => { const n = Number(v) || 0; return n >= 0 ? 'style="color:#1f7a52;font-weight:600;"' : 'style="color:#d55b2d;font-weight:600;"'; };
+          benchHTML += '<tr style="border-bottom:1px solid #eee;">';
+          benchHTML += `<td style="padding:8px;font-weight:600;">${esc(c.benchmark_game)}</td>`;
+          benchHTML += `<td style="padding:8px;text-align:right;" ${dC(c.quality_diff)}>${(Number(c.quality_diff) || 0) >= 0 ? '+' : ''}${Number(c.quality_diff).toFixed(2)}</td>`;
+          benchHTML += `<td style="padding:8px;text-align:right;" ${dC(c.cl_diff)}>${(Number(c.cl_diff) || 0) >= 0 ? '+' : ''}${Number(c.cl_diff).toFixed(2)}</td>`;
+          benchHTML += `<td style="padding:8px;text-align:right;" ${dC(c.pool_diff)}>${(Number(c.pool_diff) || 0) >= 0 ? '+' : ''}${fmt(c.pool_diff)}</td>`;
+          benchHTML += `<td style="padding:8px;text-align:right;" ${dC(c.sales_diff)}>${(Number(c.sales_diff) || 0) >= 0 ? '+' : ''}${fmt(c.sales_diff)}</td>`;
+          benchHTML += `<td style="padding:8px;text-align:right;" ${c.sao_diff !== null ? dC(c.sao_diff) : ''}>${c.sao_diff !== null ? (Number(c.sao_diff) >= 0 ? '+' : '') + fmt(c.sao_diff) : 'N/A'}</td>`;
+          benchHTML += '</tr>';
+        });
+        benchHTML += '</tbody></table>';
+      }
+
+      // Build benchmark reference
+      let benchRefHTML = "";
+      if (benchmarkData && benchmarkData.records && benchmarkData.records.length) {
+        benchRefHTML += '<table style="width:100%;border-collapse:collapse;font-size:14px;">';
+        benchRefHTML += '<thead><tr style="border-bottom:2px solid #e0e0e0;">';
+        benchRefHTML += '<th style="text-align:left;padding:8px;">游戏</th>';
+        benchRefHTML += '<th style="text-align:left;padding:8px;">品类</th>';
+        benchRefHTML += '<th style="text-align:right;padding:8px;">质量分</th>';
+        benchRefHTML += '<th style="text-align:right;padding:8px;">CL</th>';
+        benchRefHTML += '<th style="text-align:right;padding:8px;">用户池</th>';
+        benchRefHTML += '<th style="text-align:right;padding:8px;">销量</th>';
+        benchRefHTML += '<th style="text-align:right;padding:8px;">SAO 上限</th>';
+        benchRefHTML += '<th style="text-align:left;padding:8px;">来源</th>';
+        benchRefHTML += '</tr></thead><tbody>';
+        benchmarkData.records.forEach(b => {
+          benchRefHTML += '<tr style="border-bottom:1px solid #eee;">';
+          benchRefHTML += `<td style="padding:8px;font-weight:600;">${esc(b.game_name)}</td>`;
+          benchRefHTML += `<td style="padding:8px;color:#666;font-size:13px;">${esc(b.genre_cluster || "")}</td>`;
+          benchRefHTML += `<td style="padding:8px;text-align:right;">${Number(b.quality_score).toFixed(1)}</td>`;
+          benchRefHTML += `<td style="padding:8px;text-align:right;">${Number(b.cl_score).toFixed(2)}</td>`;
+          benchRefHTML += `<td style="padding:8px;text-align:right;">${fmt(b.user_pool)}</td>`;
+          benchRefHTML += `<td style="padding:8px;text-align:right;">${fmt(b.sales)}</td>`;
+          benchRefHTML += `<td style="padding:8px;text-align:right;">${b.sao_anchor ? fmt(b.sao_anchor) : "N/A"}</td>`;
+          benchRefHTML += `<td style="padding:8px;color:#666;font-size:13px;">${esc(b.source_label || "")}</td>`;
+          benchRefHTML += '</tr>';
+        });
+        benchRefHTML += '</tbody></table>';
+      }
+
+      // Full HTML document
+      return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Steam 发行销量预测报告 — ${esc(game.name || data.query || "Report")}</title>
+  <style>
+    :root { --accent: #1f7a52; --accent2: #d55b2d; --bg: #f7f5f0; --ink: #1a1a1a; --muted: #666; --line: rgba(0,0,0,0.1); }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Space Grotesk", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--ink); background: var(--bg); }
+    .frame { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+    .header { background: linear-gradient(135deg, var(--accent), #245e45); color: white; padding: 32px; border-radius: 20px; margin-bottom: 24px; }
+    .header h1 { margin: 0 0 8px; font-size: 28px; }
+    .header .meta { font-size: 14px; opacity: 0.9; }
+    .section { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 22px; margin-bottom: 18px; }
+    .section-title { font-size: 12px; font-family: "IBM Plex Mono", monospace; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent2); margin-bottom: 14px; }
+    .big { font-size: 36px; font-weight: 700; margin-bottom: 8px; }
+    .kv { display: grid; grid-template-columns: 180px 1fr; gap: 6px 14px; font-size: 15px; line-height: 1.8; }
+    .kv strong { color: var(--ink); }
+    .footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px 0 8px; }
+    table { font-family: inherit; }
+    @media print { body { background: white; } .frame { padding: 0; } .section { break-inside: avoid; } }
+    @media (max-width: 600px) { .kv { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <div class="header">
+      <h1>📊 Steam 发行销量预测报告</h1>
+      <div class="meta">游戏: ${esc(game.name || data.query || "Unknown")} | 生成时间: ${timestamp}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">🎮 游戏信息</div>
+      <div class="big">${esc(game.name || data.query || "Unknown")}</div>
+      <div class="kv">${gameRows}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">📈 销量结论</div>
+      <div class="big">${fmt(analysis.sales)} 份</div>
+      <div class="kv">${salesRows}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">🧮 CL 计算拆解</div>
+      <div class="kv">${clRows}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">⭐ 质量评估</div>
+      <div class="kv">${qualityRows}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">👥 用户池分析</div>
+      <div class="kv">${poolRows}</div>
+    </div>
+
+    ${miRows ? `<div class="section"><div class="section-title">📝 手动参数</div><div class="kv">${miRows}</div></div>` : ""}
+
+    ${benchHTML ? `<div class="section"><div class="section-title">🏆 标杆对比</div>${benchHTML}</div>` : ""}
+    ${benchRefHTML ? `<div class="section"><div class="section-title">📚 标杆参考数据</div>${benchRefHTML}</div>` : ""}
+
+    <div class="section">
+      <div class="section-title">📄 原始数据（JSON）</div>
+      <pre style="font-size:12px;max-height:400px;overflow:auto;background:#f5f5f5;padding:14px;border-radius:10px;white-space:pre-wrap;word-break:break-all;">${JSON.stringify(data, null, 2)}</pre>
+    </div>
+
+    <div class="footer">
+      Steam 发行销量预测器 · 本地研究工具 · 由 structured rules model 生成 · ${timestamp}
+    </div>
+  </div>
+</body>
+</html>`;
+    }
+
+    /**
+     * Helper: create a table row for report generation.
+     */
+    function tr(label, value) {
+      return `<tr><td style="color:var(--muted);font-size:14px;">${escHtml(label)}</td><td style="font-size:14px;font-weight:500;">${value}</td></tr>`;
+    }
+
+    function escHtml(v) {
+      return String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    /**
+     * Generate a comprehensive HTML report including discussion data.
+     * Used by the "导出完整报告" button.
+     */
+    function generateFullReport(data, benchmarkComparison, benchmarkData, discussionData) {
+      // Reuse generateReportHTML for the base, then append discussion section
+      let baseHTML = generateReportHTML(data, benchmarkComparison, benchmarkData);
+
+      // Build discussion data section
+      let discussionSection = "";
+      if (discussionData && discussionData.length) {
+        let discHTML = '<div class="section"><div class="section-title">💬 讨论数据汇总</div>';
+        discussionData.forEach(r => {
+          if (r.error_message) {
+            discHTML += `<div style="padding:10px;margin-bottom:8px;border-radius:10px;background:rgba(213,91,45,0.08);border:1px solid rgba(213,91,45,0.2);color:#d55b2d;font-size:14px;">
+              ⚠️ ${escHtml(r.source_type || "Unknown")}: ${escHtml(r.error_message)}
+            </div>`;
+            return;
+          }
+          const items = r.normalized || [];
+          if (!items.length) {
+            discHTML += `<div style="padding:10px;margin-bottom:8px;border-radius:10px;background:rgba(255,255,255,0.5);border:1px solid var(--line);font-size:14px;color:var(--muted);">
+              ${escHtml(r.source_type || "Unknown")}: 无相关讨论
+            </div>`;
+            return;
+          }
+          discHTML += `<div style="margin-bottom:14px;"><div style="font-weight:700;margin-bottom:6px;font-size:15px;">${escHtml(r.source_type || "Unknown")} (${items.length} 条)</div>`;
+          items.forEach(item => {
+            discHTML += `<div style="padding:8px 12px;margin-bottom:6px;border-radius:10px;background:rgba(255,255,255,0.5);border:1px solid var(--line);font-size:14px;">
+              <div style="font-weight:600;margin-bottom:4px;">${escHtml(item.title || "无标题")}</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">👍 ${Number(item.upvotes||0)}  💬 ${Number(item.comments||0)}  🕐 ${escHtml(item.published||"N/A")}</div>
+              <div style="font-size:13px;line-height:1.5;">${escHtml((item.body||"").substring(0, 200))}${(item.body||"").length > 200 ? "..." : ""}</div>
+              ${item.url ? `<div style="font-size:12px;color:var(--accent);margin-top:4px;"><a href="${escHtml(item.url)}" target="_blank">${escHtml(item.url)}</a></div>` : ""}
+            </div>`;
+          });
+          discHTML += '</div>';
+        });
+        discHTML += '</div>';
+        baseHTML = baseHTML.replace('</div>\n</body>', discHTML + '\n  </div>\n</body>');
+      }
+
+      return baseHTML;
+    }
+
+    /**
+     * Export as a formatted HTML report — the primary readable format.
+     */
+    function exportHTMLReport(data) {
+      if (!data) {
+        statusText.textContent = "当前状态：请先运行分析以获取数据。";
+        return;
+      }
+      statusText.textContent = "当前状态：正在生成报告...";
+
+      // Include benchmark comparison if available
+      const benchComp = lastBenchmarkComparison || null;
+      const benchData = lastBenchmarkData || null;
+
+      const html = generateReportHTML(data, benchComp, benchData);
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const name = (data.game?.name || data.query || "report")
+        .replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, "_")
+        .replace(/_+/g, "_");
+      downloadBlob(blob, `steam-report-${name}-${timestampSuffix()}.html`);
+      statusText.textContent = `当前状态：HTML 报告已导出。`;
+    }
 
     function exportJSON(data) {
       const exportData = { ...data };
@@ -2377,53 +2982,6 @@
     }
 
     function exportCSV() {
-      if (!lastPayload) {
-        statusText.textContent = "当前状态：请先运行分析以获取数据。";
-        return;
-      }
-
-      const game = lastPayload.game || {};
-      const analysis = lastPayload.analysis || {};
-      const quality = analysis.quality || {};
-      const pool = analysis.user_pool || {};
-
-      // Build flat rows for CSV
-      const rows = [];
-      // Section: Game Info
-      rows.push(["section", "key", "value"]);
-      rows.push(["游戏信息", "游戏名称", game.name || ""]);
-      rows.push(["游戏信息", "Steam App ID", game.app_id ?? ""]);
-      rows.push(["游戏信息", "价格(USD)", game.price_usd ?? ""]);
-      rows.push(["游戏信息", "评论数", game.review_count ?? ""]);
-      rows.push(["游戏信息", "评分", game.review_score ?? ""]);
-      rows.push(["游戏信息", "发售日期", game.release_date || ""]);
-      rows.push(["游戏信息", "标签", Array.isArray(game.steam_tags) ? game.steam_tags.join(" / ") : ""]);
-      rows.push(["游戏信息", "类别", Array.isArray(game.categories) ? game.categories.join(" / ") : ""]);
-      rows.push(["游戏信息", "开发者", Array.isArray(game.developer_names) ? game.developer_names.join(" / ") : ""]);
-      rows.push(["游戏信息", "发行商", Array.isArray(game.publisher_names) ? game.publisher_names.join(" / ") : ""]);
-
-      // Section: Quality
-      rows.push(["质量评估", "质量分", quality.quality_score ?? ""]);
-      rows.push(["质量评估", "质量置信度", quality.quality_confidence ? `${Math.round(quality.quality_confidence * 100)}%` : ""]);
-      rows.push(["质量评估", "评分强度", quality.rating_strength ?? ""]);
-      rows.push(["质量评估", "讨论强度", quality.discussion_strength ?? ""]);
-      rows.push(["质量评估", "持续性", quality.persistence_strength ?? ""]);
-      rows.push(["质量评估", "缺失数据源", Array.isArray(quality.missing_quality_sources) ? quality.missing_quality_sources.join(" / ") : ""]);
-
-      // Section: User Pool
-      rows.push(["用户池", "最终用户池", pool.estimated_user_pool ?? ""]);
-      rows.push(["用户池", "加权品类和", pool.weighted_genre_sum ?? ""]);
-      rows.push(["用户池", "重叠修正", pool.overlap_adjustment ?? ""]);
-      rows.push(["用户池", "平台修正", pool.platform_fit ?? ""]);
-      rows.push(["用户池", "区域修正", pool.region_fit ?? ""]);
-      const poolMatches = Array.isArray(pool.matches) && pool.matches.length
-        ? pool.matches.map(item => `${item.genre_name} (${item.weighted_pool})`).join(" / ")
-        : "";
-      rows.push(["用户池", "命中品类", poolMatches]);
-
-      // Section: Sales
-      rows.push(["销量预测", "销量预测(份)", analysis.sales ?? ""]);
-      rows.push(["销量预测", "CL 得分", analysis.cl_score ?? ""]);
       rows.push(["销量预测", "基础转化", analysis.base_conversion ?? ""]);
       rows.push(["销量预测", "长尾年销量", analysis.annual_long_tail_sales ?? ""]);
 
@@ -2459,6 +3017,93 @@
       const d = new Date();
       const pad = (n) => String(n).padStart(2, "0");
       return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+    }
+
+    // ── Benchmark Export ───────────────────────────────────────────────
+
+    let lastBenchmarkData = null;
+    let lastBenchmarkComparison = null;
+
+    const benchmarkExportJsonBtn = document.getElementById("benchmark-export-json");
+    const benchmarkExportCsvBtn = document.getElementById("benchmark-export-csv");
+
+    function exportBenchmarkJSON() {
+      if (!lastBenchmarkComparison || !lastBenchmarkData) {
+        statusText.textContent = "当前状态：请先运行标杆对比以获取数据。";
+        return;
+      }
+      const exportData = {
+        export_type: "benchmark_comparison",
+        game_name: lastPayload?.game?.name || lastPayload?.query || "Unknown",
+        timestamp: new Date().toISOString(),
+        current_analysis: lastAnalysisData,
+        comparison: lastBenchmarkComparison,
+        benchmarks: lastBenchmarkData,
+      };
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+      downloadBlob(blob, `benchmark-${exportData.game_name}-${timestampSuffix()}.json`);
+    }
+
+    function exportBenchmarkCSV() {
+      if (!lastBenchmarkComparison || !lastBenchmarkData || !lastAnalysisData) {
+        statusText.textContent = "当前状态：请先运行标杆对比以获取数据。";
+        return;
+      }
+
+      const game = lastPayload?.game || {};
+      const currentSales = lastAnalysisData.sales || 0;
+      const currentQuality = lastAnalysisData.quality?.quality_score || 0;
+      const currentCL = lastAnalysisData.cl_score || 0;
+      const currentPool = lastAnalysisData.user_pool?.estimated_user_pool || 0;
+
+      const rows = [];
+      rows.push(["标杆对比数据", ""]);
+      rows.push(["游戏", game.name || "N/A"]);
+      rows.push(["销量", currentSales]);
+      rows.push(["质量分", currentQuality]);
+      rows.push(["CL 得分", currentCL]);
+      rows.push(["用户池", currentPool]);
+      rows.push([""]);
+      rows.push(["标杆", "质量 Δ", "CL Δ", "用户池 Δ", "销量 Δ", "SAO 差值"]);
+
+      lastBenchmarkComparison.forEach(c => {
+        rows.push([
+          c.benchmark_game || "",
+          (Number(c.quality_diff) || 0).toFixed(2),
+          (Number(c.cl_diff) || 0).toFixed(2),
+          Number(c.pool_diff) || 0,
+          Number(c.sales_diff) || 0,
+          c.sao_diff !== null ? Number(c.sao_diff) : "N/A",
+        ]);
+      });
+
+      rows.push([""]);
+      rows.push(["标杆参考数据", "品类", "质量分", "CL", "用户池", "销量", "SAO 上限", "来源"]);
+      lastBenchmarkData.records?.forEach(b => {
+        rows.push([
+          b.game_name || "",
+          b.genre_cluster || "",
+          Number(b.quality_score)?.toFixed(1) || "N/A",
+          Number(b.cl_score)?.toFixed(2) || "N/A",
+          Number(b.user_pool) || 0,
+          Number(b.sales) || 0,
+          b.sao_anchor ? Number(b.sao_anchor) : "N/A",
+          b.source_label || "",
+        ]);
+      });
+
+      const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const bom = "\uFEFF";
+      const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8" });
+      downloadBlob(blob, `benchmark-${game.name || "report"}-${timestampSuffix()}.csv`);
+      statusText.textContent = "当前状态：标杆对比 CSV 导出完成。";
+    }
+
+    if (benchmarkExportJsonBtn) {
+      benchmarkExportJsonBtn.addEventListener("click", exportBenchmarkJSON);
+    }
+    if (benchmarkExportCsvBtn) {
+      benchmarkExportCsvBtn.addEventListener("click", exportBenchmarkCSV);
     }
 
     // ── Quick Analyze + Benchmark Compare ─────────────────────────────
@@ -2612,18 +3257,43 @@
         statusText.textContent = "当前状态：请先运行分析以获取数据。";
         return;
       }
-      // Show export format options via a temporary confirm
-      const format = confirm("点击「确定」导出 JSON，点击「取消」导出 CSV。");
+      // Iterate 2026/06/11: Webber — Three-tier export: HTML report > JSON > CSV
+      const format = confirm("点击「确定」导出 HTML 格式报告（含标杆对比），点击「取消」导出 JSON 原始数据。");
       if (format) {
-        exportJSON(lastPayload);
+        exportHTMLReport(lastPayload);
       } else {
-        exportCSV();
+        exportJSON(lastPayload);
       }
     });
+
+    // ── Full Report Export (Iter 2026/06/11: Webber) ──
+    if (exportFullReportButton) {
+      exportFullReportButton.addEventListener("click", () => {
+        if (!lastPayload) {
+          statusText.textContent = "当前状态：请先运行分析以获取数据。";
+          return;
+        }
+        statusText.textContent = "当前状态：正在生成完整报告...";
+
+        // Gather all available data: analysis, benchmark comparison, discussion data
+        const benchComp = lastBenchmarkComparison || null;
+        const benchData = lastBenchmarkData || null;
+        const discData = currentDiscussionData || null;
+
+        const html = generateFullReport(lastPayload, benchComp, benchData, discData);
+        const name = (lastPayload.game?.name || lastPayload.query || "report")
+          .replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, "_")
+          .replace(/_+/g, "_");
+        const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+        downloadBlob(blob, `steam-full-report-${name}-${timestampSuffix()}.html`);
+        statusText.textContent = "当前状态：完整报告已导出。";
+      });
+    }
 
     // ── SteamDB Data Fetch ─────────────────────────────────────────────
 
     const steamdbFetchBtn = document.getElementById("fetch-steamdb");
+    const steamdbBatchToggleBtn = document.getElementById("fetch-steamdb-batch");
     let currentSteamdbData = null;
 
     async function fetchSteamdb(appId) {
@@ -2935,6 +3605,21 @@
     const discussionToggleBtn = document.getElementById("fetch-discussion");
     let currentDiscussionData = null;
 
+    // ── Quick navigation helper ──
+    window.navigateToDiscussionPanel = function(gameName) {
+      discussionGameQuery.value = gameName || "";
+      resultsGrid.classList.add("hidden");
+      scenarioGrid.classList.add("hidden");
+      recordListGrid.classList.add("hidden");
+      benchmarkGrid.classList.add("hidden");
+      calibrationGrid.classList.add("hidden");
+      discussionGrid.classList.remove("hidden");
+      // Auto-fetch if game name is provided
+      if (gameName) {
+        fetchDiscussionData();
+      }
+    };
+
     if (discussionToggleBtn) {
       discussionToggleBtn.addEventListener("click", () => {
         resultsGrid.classList.add("hidden");
@@ -3043,6 +3728,9 @@
 
         discussionContent.innerHTML = html;
         statusText.textContent = "当前状态：讨论数据获取完成。";
+
+        // ── Render Discussion → Quality Contribution Summary ──
+        renderDiscussionQualitySummary(results);
       } catch (error) {
         discussionError.style.display = "flex";
         discussionErrorText.textContent = `讨论数据获取失败：${error.message}`;
@@ -3055,7 +3743,342 @@
       discussionRunBtn.addEventListener("click", fetchDiscussionData);
     }
 
+    // ── Discussion → Quality Contribution Renderer ────────────────────
+    /**
+     * Renders a quality contribution summary from discussion data.
+     * Links the discussion panel with quality scoring per Iteration_Development_Spec §12.
+     */
+    function renderDiscussionQualitySummary(results) {
+      const summaryEl = document.getElementById("discussion-quality-summary");
+      const bodyEl = document.getElementById("discussion-quality-body");
+      if (!summaryEl || !bodyEl) return;
+
+      if (!results || results.length === 0) {
+        summaryEl.style.display = "none";
+        return;
+      }
+
+      // Aggregate signals from all sources
+      let totalEngagement = 0;
+      let totalUpvotes = 0;
+      let totalComments = 0;
+      let totalViews = 0;
+      let sourceCount = 0;
+      let successCount = 0;
+      let hasHotContent = false;
+      let totalItems = 0;
+
+      results.forEach(r => {
+        sourceCount++;
+        if (r.error_message) return;
+        const items = r.normalized || [];
+        if (items.length === 0) return;
+        successCount++;
+        totalItems += items.length;
+        items.forEach(item => {
+          const up = Number(item.upvotes || 0);
+          const cm = Number(item.comments || 0);
+          const vw = Number(item.views || 0);
+          totalUpvotes += up;
+          totalComments += cm;
+          totalViews += vw;
+          totalEngagement += up + cm;
+          if (item.has_hot_content) hasHotContent = true;
+        });
+      });
+
+      // Compute discussion strength signal (0-10 scale)
+      // Based on: count signal, engagement signal, hot content flag
+      const countSignal = Math.min(10, Math.log10(totalItems + 1) * 3.5);
+      const engagementSignal = Math.min(10, Math.log10(totalEngagement + 1) * 2.0);
+      const hotContentSignal = hasHotContent ? 1.5 : 0;
+      const discussionStrength = Math.min(10, countSignal * 0.45 + engagementSignal * 0.45 + hotContentSignal);
+
+      // Confidence: how much of the discussion data was successfully fetched
+      const discussionConfidence = sourceCount > 0 ? successCount / sourceCount : 0;
+
+      // Missing sources
+      const missingSources = results.filter(r => !r.error_message && !(r.normalized && r.normalized.length > 0)).map(r => r.source_type || "unknown");
+
+      // Build cards
+      let html = '<div class="disc-quality-grid">';
+
+      // Helper: get progress class based on value (0-10)
+      function progressClass(v) {
+        if (v >= 6) return 'high';
+        if (v >= 3) return 'mid';
+        return 'low';
+      }
+
+      // Card 1: Count Signal
+      const countPct = countSignal;
+      html += `<div class="disc-quality-card ${totalItems > 0 ? 'complete' : 'partial'}">
+        <div class="disc-quality-label">讨论数量信号</div>
+        <div class="disc-quality-value">${countSignal.toFixed(1)}</div>
+        <div class="disc-quality-detail">共 ${totalItems} 条讨论结果，来自 ${successCount}/${sourceCount} 个可用源</div>
+        <div class="disc-progress-track"><div class="disc-progress-fill ${progressClass(countSignal)}" style="width:${Math.round(countSignal * 10)}%"></div></div>
+      </div>`;
+
+      // Card 2: Engagement Signal
+      html += `<div class="disc-quality-card ${totalEngagement > 0 ? 'complete' : 'partial'}">
+        <div class="disc-quality-label">讨论互动信号</div>
+        <div class="disc-quality-value">${engagementSignal.toFixed(1)}</div>
+        <div class="disc-quality-detail">总互动 ${formatNumber(totalEngagement)}（👍${formatNumber(totalUpvotes)} 💬${formatNumber(totalComments)}）</div>
+        <div class="disc-progress-track"><div class="disc-progress-fill ${progressClass(engagementSignal)}" style="width:${Math.round(engagementSignal * 10)}%"></div></div>
+      </div>`;
+
+      // Card 3: Discussion Strength
+      html += `<div class="disc-quality-card ${discussionStrength > 0 ? 'complete' : 'empty'}">
+        <div class="disc-quality-label">讨论强度综合评分</div>
+        <div class="disc-quality-value">${discussionStrength.toFixed(1)} / 10</div>
+        <div class="disc-quality-detail">权重: 数量45% + 互动45% + 热点10%</div>
+        <div class="disc-progress-track"><div class="disc-progress-fill ${progressClass(discussionStrength)}" style="width:${Math.round(discussionStrength * 10)}%"></div></div>
+      </div>`;
+
+      // Card 4: Confidence & Missing
+      const confPct = discussionConfidence * 100;
+      html += `<div class="disc-quality-card ${discussionConfidence >= 0.7 ? 'complete' : discussionConfidence > 0 ? 'partial' : 'empty'}">
+        <div class="disc-quality-label">数据置信度</div>
+        <div class="disc-quality-value">${Math.round(confPct)}%</div>
+        <div class="disc-quality-detail">${discussionConfidence < 0.7 ? '部分数据源不可用，评分可能不完整' : '数据来源充分'}</div>
+        <div class="disc-progress-track"><div class="disc-progress-fill ${discussionConfidence >= 0.7 ? 'high' : discussionConfidence > 0 ? 'mid' : 'low'}" style="width:${Math.round(confPct)}%"></div></div>
+      </div>`;
+
+      html += '</div>';
+
+      // Warning if discussion data is sparse
+      if (totalItems === 0 && sourceCount > 0) {
+        html += `<div style="margin-top:12px;padding:10px 14px;border-radius:10px;background:rgba(213,91,45,0.08);border:1px solid rgba(213,91,45,0.25);font-size:13px;color:var(--accent-2);">
+          ⚠️ 所有讨论源均未返回有效数据。该游戏的讨论强度信号将为零，质量评分会相应降低。
+        </div>`;
+      }
+
+      bodyEl.innerHTML = html;
+      summaryEl.style.display = "block";
+    }
+
+    // ── End Discussion → Quality Contribution Renderer ─────────────────
+
     // ── End Discussion Data Panel ──────────────────────────────────────
+
+    // ── Discussion Data Export ─────────────────────────────────────────
+    const discussionExportJsonBtn = document.getElementById("discussion-export-json");
+    const discussionExportCsvBtn = document.getElementById("discussion-export-csv");
+    const discussionExportReportBtn = document.getElementById("discussion-export-report");
+
+    function exportDiscussionJSON() {
+      if (!currentDiscussionData || currentDiscussionData.length === 0) {
+        statusText.textContent = "当前状态：暂无讨论数据可导出。";
+        return;
+      }
+      const gameName = discussionGameQuery.value.trim() || "unknown";
+      const exportData = {
+        query: gameName,
+        exported_at: new Date().toISOString(),
+        results: currentDiscussionData,
+      };
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+      downloadBlob(blob, `steam-discussion-${gameName}-${timestampSuffix()}.json`);
+      statusText.textContent = `当前状态：讨论数据 JSON 导出完成 (${gameName})。`;
+    }
+
+    function exportDiscussionCSV() {
+      if (!currentDiscussionData || currentDiscussionData.length === 0) {
+        statusText.textContent = "当前状态：暂无讨论数据可导出。";
+        return;
+      }
+      const rows = [["source_type", "title", "upvotes", "comments", "published", "body", "url"]];
+      currentDiscussionData.forEach((r) => {
+        (r.normalized || []).forEach((item) => {
+          rows.push([
+            r.source_type || "",
+            (item.title || "").replace(/"/g, '""'),
+            item.upvotes || 0,
+            item.comments || 0,
+            item.published || "",
+            (item.body || "").replace(/"/g, '""').replace(/\n/g, " "),
+            item.url || "",
+          ]);
+        });
+      });
+      const csv = rows.map(r => r.map(cell => `"${cell}"`).join(",")).join("\n");
+      const bom = "\uFEFF";
+      const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8" });
+      downloadBlob(blob, `steam-discussion-${timestampSuffix()}.csv`);
+      statusText.textContent = "当前状态：讨论数据 CSV 导出完成。";
+    }
+
+    if (discussionExportJsonBtn) {
+      discussionExportJsonBtn.addEventListener("click", exportDiscussionJSON);
+    }
+    if (discussionExportCsvBtn) {
+      discussionExportCsvBtn.addEventListener("click", exportDiscussionCSV);
+    }
+    if (discussionExportReportBtn) {
+      discussionExportReportBtn.addEventListener("click", () => {
+        if (!lastPayload) {
+          statusText.textContent = "当前状态：请先运行分析以获取数据。";
+          return;
+        }
+        statusText.textContent = "当前状态：正在生成讨论报告...";
+        const name = (lastPayload.game?.name || lastPayload.query || "report")
+          .replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, "_").replace(/_+/g, "_");
+        const discData = currentDiscussionData || null;
+        const html = generateFullReport(lastPayload, lastBenchmarkComparison || null, lastBenchmarkData || null, discData);
+        const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+        downloadBlob(blob, `steam-disc-report-${name}-${timestampSuffix()}.html`);
+        statusText.textContent = "当前状态：讨论报告已导出。";
+      });
+    }
+    // ── End Discussion Data Export ─────────────────────────────────────
+
+    // ── SteamDB Batch ──────────────────────────────────────────────────
+
+    const steamdbBatchGrid = document.getElementById("steamdb-batch-grid");
+    const steamdbBatchRunBtn = document.getElementById("steamdb-batch-run-btn");
+    const steamdbBatchInput = document.getElementById("steamdb-batch-input");
+    const steamdbBatchContent = document.getElementById("steamdb-batch-content");
+    const steamdbBatchError = document.getElementById("steamdb-batch-error");
+    const steamdbBatchErrorText = document.getElementById("steamdb-batch-error-text");
+
+    if (steamdbBatchToggleBtn) {
+      steamdbBatchToggleBtn.addEventListener("click", () => {
+        resultsGrid.classList.add("hidden");
+        scenarioGrid.classList.add("hidden");
+        recordListGrid.classList.add("hidden");
+        benchmarkGrid.classList.add("hidden");
+        discussionGrid.classList.add("hidden");
+        calibrationGrid.classList.add("hidden");
+        steamdbBatchGrid.classList.remove("hidden");
+      });
+    }
+
+    function renderSteamdbBatchResult(stat, isOk) {
+      return `<div class="steamdb-batch-stat">
+        <div class="steamdb-batch-stat-label">${stat.label}</div>
+        <div class="steamdb-batch-stat-value">${stat.value}</div>
+      </div>`;
+    }
+
+    async function runSteamdbBatch() {
+      const backendUrl = backendUrlInput.value.trim().replace(/\/$/, "");
+      const inputRaw = steamdbBatchInput.value.trim();
+
+      if (!backendUrl) {
+        statusText.textContent = "当前状态：请先填写后端地址。";
+        return;
+      }
+      if (!inputRaw) {
+        statusText.textContent = "当前状态：请输入 App ID 列表。";
+        return;
+      }
+
+      window.localStorage.setItem(storageKey, backendUrl);
+      const ids = inputRaw.split(/[,\n]+/).map(s => s.trim()).filter(s => s.length > 0);
+      if (ids.length === 0) {
+        statusText.textContent = "当前状态：未识别到有效的 App ID。";
+        return;
+      }
+
+      statusText.textContent = `当前状态：正在批量获取 ${ids.length} 个游戏的 SteamDB 数据...`;
+      steamdbBatchContent.innerHTML = '<p style="color:var(--muted);">加载中...</p>';
+      steamdbBatchError.style.display = "none";
+
+      try {
+        const response = await fetch(`${backendUrl}/api/steamdb_batch?app_ids=${encodeURIComponent(ids.join(","))}`);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || `HTTP ${response.status}`);
+        }
+
+        const results = data.results || [];
+        const errors = data.errors || [];
+
+        // Build result HTML
+        let html = '';
+
+        // Group by game: results have app_id and stats
+        const byAppId = {};
+        results.forEach(r => { byAppId[r.app_id] = r.stats; });
+
+        // Try to get game names from the analysis cache
+        const lastGameName = lastPayload?.game?.name || "";
+
+        ids.forEach((idStr) => {
+          const appId = parseInt(idStr, 10);
+          if (isNaN(appId)) {
+            html += `<div class="steamdb-batch-result-card has-error">
+              <div class="steamdb-batch-header">
+                <span class="steamdb-batch-game-name">${escapeHtml(idStr)}</span>
+                <span class="discussion-error-tag">无效 ID</span>
+              </div>
+              <div class="steamdb-batch-error">非数字 App ID，已跳过。</div>
+            </div>`;
+            return;
+          }
+
+          const stats = byAppId[appId];
+          if (!stats) {
+            const err = errors.find(e => e.app_id === appId);
+            html += `<div class="steamdb-batch-result-card has-error">
+              <div class="steamdb-batch-header">
+                <span class="steamdb-batch-game-name">App #${appId}</span>
+                <span class="discussion-error-tag">获取失败</span>
+              </div>
+              <div class="steamdb-batch-error">⚠️ ${err?.error || "未知错误"}</div>
+            </div>`;
+            return;
+          }
+
+          // Try to find game name from lastPayload or use "Unknown"
+          const gameName = lastPayload?.game?.app_id === appId
+            ? lastPayload.game.name
+            : `App #${appId}`;
+
+          html += `<div class="steamdb-batch-result-card">
+            <div class="steamdb-batch-header">
+              <span class="steamdb-batch-game-name">${escapeHtml(gameName)} <span style="color:var(--muted);font-size:13px;">(#${appId})</span></span>
+              <span style="font-size:13px;color:var(--muted);">SteamDB 数据</span>
+            </div>
+            <div class="steamdb-batch-stats">
+              ${renderSteamdbBatchResult({ label: "当前在线", value: formatNumber(stats.current_players) })}
+              ${renderSteamdbBatchResult({ label: "24h 峰值", value: formatNumber(stats.peak_24h) })}
+              ${renderSteamdbBatchResult({ label: "历史峰值", value: formatNumber(stats.all_time_peak) })}
+              ${renderSteamdbBatchResult({ label: "30天峰值", value: formatNumber(stats.last_30_days_peak || 0) })}
+              ${renderSteamdbBatchResult({ label: "关注者", value: formatNumber(stats.followers) })}
+              ${renderSteamdbBatchResult({ label: "好评数", value: formatNumber(stats.positive_reviews) })}
+              ${renderSteamdbBatchResult({ label: "差评数", value: formatNumber(stats.negative_reviews) })}
+              ${renderSteamdbBatchResult({ label: "日活排名", value: stats.daily_active_users_rank ? `#${formatNumber(stats.daily_active_users_rank)}` : "N/A" })}
+              ${renderSteamdbBatchResult({ label: "畅销排名", value: stats.top_sellers_rank ? `#${formatNumber(stats.top_sellers_rank)}` : "N/A" })}
+              ${renderSteamdbBatchResult({ label: "心愿单排名", value: stats.wishlist_activity_rank ? `#${formatNumber(stats.wishlist_activity_rank)}` : "N/A" })}
+            </div>
+          </div>`;
+        });
+
+        // Summary
+        const successCount = results.length;
+        const failCount = errors.length;
+        const totalIds = ids.filter(s => !isNaN(parseInt(s, 10))).length;
+        html += `<p style="margin-top:16px;font-size:14px;color:var(--muted);">
+          总计 ${totalIds} 个 App ID，成功 ${successCount} 个，失败 ${failCount} 个。
+          ${failCount > 0 ? `部分结果可能因 SteamDB 反爬策略不可用。` : "全部获取完成。"}
+        </p>`;
+
+        steamdbBatchContent.innerHTML = html;
+        statusText.textContent = `当前状态：批量获取完成（成功 ${successCount} / 失败 ${failCount}）。`;
+      } catch (error) {
+        steamdbBatchError.style.display = "flex";
+        steamdbBatchErrorText.textContent = `批量获取失败：${error.message}`;
+        steamdbBatchContent.innerHTML = "";
+        statusText.textContent = `当前状态：批量获取失败。${error.message}`;
+      }
+    }
+
+    if (steamdbBatchRunBtn) {
+      steamdbBatchRunBtn.addEventListener("click", runSteamdbBatch);
+    }
+
+    // ── End SteamDB Batch ──────────────────────────────────────────────
 
     // ── Calibration Page ────────────────────────────────────────────────
 
