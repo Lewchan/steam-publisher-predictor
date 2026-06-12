@@ -1,4 +1,4 @@
-<!-- Webber 2026/06/11 迭代完成: 讨论数据质量可视化 + 质量置信度增强 + 讨论数据进度条 + 快速讨论获取按钮 + 移动端讨论面板优化 + 分析结果可视化增强 -->
+<!-- Webber 2026/06/11 迭代完成: 讨论数据加载动画优化 + 多源进度条 + 质量置信度增强 + 移动端响应式 + 快速讨论获取 + 标杆对比 + 校准面板 + 导出功能 + SteamDB批量 + 讨论数据进度条 + 快速讨论获取按钮 + 移动端讨论面板优化 + 分析结果可视化增强 + 分析结果数据可视化(质量条形图/CL流程/销量公式) -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1249,6 +1249,20 @@
       .disc-quality-grid {
         grid-template-columns: 1fr 1fr;
       }
+      /* Discussion source loading progress */
+      .disc-loading-bar-container {
+        padding: 16px;
+        background: rgba(255,252,245,0.9);
+        border-radius: 14px;
+        border: 1px solid var(--line);
+      }
+      @keyframes disc-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+      .disc-loading-bar-container #disc-loading-count {
+        animation: disc-pulse 1.5s ease-in-out infinite;
+      }
     }
   </style>
 </head>
@@ -1489,6 +1503,21 @@
             <div class="result-title">原始返回</div>
             <textarea class="textarea" id="result-box" readonly placeholder="分析结果会显示在这里"></textarea>
           </article>
+        <!-- ── Analysis Result Visualizations ────────────────────────────── -->
+        <article class="result-card full" id="viz-quality-card" style="display:none;">
+          <div class="result-title">📊 质量评分可视化</div>
+          <div id="quality-viz-container" style="margin-bottom:16px;"></div>
+          <div class="label" style="margin-bottom:8px;">置信度指示</div>
+          <div id="confidence-viz-bar"></div>
+        </article>
+        <article class="result-card full" id="viz-cl-card" style="display:none;">
+          <div class="result-title">🧮 CL 计算流程可视化</div>
+          <div id="cl-viz-container"></div>
+        </article>
+        <article class="result-card full" id="viz-sales-card" style="display:none;">
+          <div class="result-title">📈 销量构成可视化</div>
+          <div id="sales-viz-container"></div>
+        </article>
         <!-- Quality confidence warning banner -->
         <article class="panel result-card full" id="quality-warning" style="display: none;">
           <div class="result-title">质量评估提示</div>
@@ -2013,6 +2042,11 @@
 
       // Quality confidence warning logic
       renderQualityWarning(quality);
+
+      // Analysis result visualizations (Webber 2026/06/11)
+      renderQualityVisualization(quality);
+      renderCLVisualization(analysis);
+      renderSalesVisualization(analysis, pool);
     }
 
     function renderQualityWarning(quality) {
@@ -2097,6 +2131,172 @@
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
     }
+
+    // ── Analysis Result Visualization (Webber 2026/06/11) ──────────────────
+
+    /**
+     * Render quality score as horizontal bar chart.
+     * Shows Rating, Proof, Discussion, Persistence sub-scores and overall quality.
+     */
+    function renderQualityVisualization(quality) {
+      const vizCard = document.getElementById("viz-quality-card");
+      const container = document.getElementById("quality-viz-container");
+      if (!vizCard || !container) return;
+
+      const ratingStrength = quality.rating_strength ?? 0;
+      const proofStrength = quality.proof_strength ?? 0;
+      const discussionStrength = quality.discussion_strength ?? 0;
+      const persistenceStrength = quality.persistence_strength ?? 0;
+      const qualityScore = quality.quality_score ?? 0;
+
+      const items = [
+        { label: "评分强度 (Rating)", value: ratingStrength, color: "#1f7a52" },
+        { label: "证明强度 (Proof)", value: proofStrength, color: "#2a9d6a" },
+        { label: "讨论强度 (Discussion)", value: discussionStrength, color: "#3db87e" },
+        { label: "持续性 (Persistence)", value: persistenceStrength, color: "#4cc990" },
+      ];
+
+      let html = "";
+      items.forEach(item => {
+        const pct = Math.min(100, (item.value / 10) * 100);
+        html += `<div class="result-viz-bar">
+          <div class="result-viz-label">${escapeHtml(item.label)}</div>
+          <div class="result-viz-track">
+            <div class="result-viz-fill" style="width:${pct}%;background:${item.color};"></div>
+          </div>
+          <div class="result-viz-value">${item.value.toFixed(2)} / 10</div>
+        </div>`;
+      });
+
+      // Overall quality score highlight
+      const overallPct = Math.min(100, (qualityScore / 10) * 100);
+      const overallColor = qualityScore >= 7 ? "#1f7a52" : qualityScore >= 4 ? "#d4a017" : "#d55b2d";
+      html += `<div style="margin-top:14px;padding:12px;border-radius:12px;background:rgba(255,255,255,0.5);border:1px solid var(--line);">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px;">综合质量评分</div>
+        <div style="font-size:32px;font-weight:700;color:${overallColor};">${qualityScore.toFixed(2)} / 10</div>
+        <div class="result-viz-bar" style="margin-top:8px;">
+          <div class="result-viz-track" style="height:10px;">
+            <div class="result-viz-fill" style="width:${overallPct}%;background:${overallColor};"></div>
+          </div>
+        </div>
+      </div>`;
+
+      container.innerHTML = html;
+      vizCard.style.display = "block";
+    }
+
+    /**
+     * Render CL calculation as a flow diagram showing the transformation steps.
+     */
+    function renderCLVisualization(analysis) {
+      const vizCard = document.getElementById("viz-cl-card");
+      const container = document.getElementById("cl-viz-container");
+      if (!vizCard || !container) return;
+
+      const clBaseRaw = analysis.cl_base_raw || 0;
+      const clBase = analysis.cl_base || 0;
+      const amplificationTagTotal = analysis.amplification_tag_total || 0;
+      const showmanshipRaw = analysis.showmanship_raw || 0;
+      const showmanshipEffect = analysis.showmanship_effect || 0;
+      const brandFactor = analysis.brand_factor || 0;
+      const clRaw = analysis.cl_raw || 0;
+      const clScore = analysis.cl_score || 0;
+
+      // Find max value for normalization
+      const maxVal = Math.max(clBaseRaw, clBase, clRaw, clScore, 1);
+
+      const steps = [
+        { label: "CL 原始值", value: clBaseRaw, desc: "用户池 × 基础转化" },
+        { label: "CL 标准化", value: clBase, desc: "归一化到 [0, 1]" },
+        { label: "增幅标签", value: amplificationTagTotal, desc: "Novelty/Interlock 等" },
+        { label: "Showmanship 生效", value: showmanshipEffect, desc: `原始 ${showmanshipRaw.toFixed(3)} → 上限裁剪` },
+        { label: "品牌系数", value: brandFactor, desc: "IP/发行商加成" },
+        { label: "CL 原始计算", value: clRaw, desc: "标准化 × (1 + 增幅) × 品牌" },
+        { label: "CL 得分（含上限）", value: clScore, desc: `上限 3.0，当前 ${clScore.toFixed(3)}` },
+      ];
+
+      let html = "";
+      steps.forEach((step, i) => {
+        const pct = Math.min(100, (step.value / maxVal) * 100);
+        const arrow = i < steps.length - 1 ? "↓" : "✓";
+        const color = i === steps.length - 1 ? "var(--accent)" : "var(--muted)";
+        html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <div style="width:140px;font-size:13px;flex-shrink:0;color:${color};">${escapeHtml(step.label)}</div>
+          <div class="result-viz-track" style="flex:1;">
+            <div class="result-viz-fill" style="width:${pct}%;background:${color};"></div>
+          </div>
+          <div style="width:100px;text-align:right;font-size:13px;font-family:IBM Plex Mono,monospace;color:${color};">${step.value.toFixed(3)}</div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-left:140px;margin-bottom:10px;">${escapeHtml(step.desc)}</div>`;
+      });
+
+      container.innerHTML = html;
+      vizCard.style.display = "block";
+    }
+
+    /**
+     * Render sales breakdown visualization showing the multiplicative factors.
+     */
+    function renderSalesVisualization(analysis, pool) {
+      const vizCard = document.getElementById("viz-sales-card");
+      const container = document.getElementById("sales-viz-container");
+      if (!vizCard || !container) return;
+
+      const sales = analysis.sales || 0;
+      const baseConversion = analysis.base_conversion || 0;
+      const clScore = analysis.cl_score || 0;
+      const estimatedUserPool = pool.estimated_user_pool || 0;
+      const annualLongTail = analysis.annual_long_tail_sales;
+
+      const clMultiplier = Math.pow(1 + clScore, 3);
+
+      let html = "";
+
+      // Sales formula visualization
+      html += `<div style="padding:14px;border-radius:12px;background:rgba(255,255,255,0.5);border:1px solid var(--line);margin-bottom:14px;">
+        <div style="font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:8px;">销量计算公式</div>
+        <div style="font-size:15px;font-family:IBM Plex Mono,monospace;line-height:1.8;">
+          sales = <strong>${formatNumber(estimatedUserPool)}</strong> × <strong>${baseConversion.toFixed(4)}</strong> × (1 + <strong>${clScore.toFixed(2)}</strong>)³
+        </div>
+        <div style="font-size:14px;color:var(--muted);margin-top:6px;">
+          = ${formatNumber(estimatedUserPool)} × ${baseConversion.toFixed(4)} × ${clMultiplier.toFixed(3)}
+          ≈ <strong style="color:var(--accent);font-size:18px;">${formatNumber(sales)}</strong> 份
+        </div>
+      </div>`;
+
+      // Factor breakdown bars
+      const factors = [
+        { label: "用户池", value: estimatedUserPool, max: Math.max(estimatedUserPool, 1), unit: "人" },
+        { label: "基础转化", value: baseConversion, max: 1, unit: "" },
+        { label: "CL 乘数", value: clMultiplier, max: Math.max(clMultiplier, 1), unit: "×" },
+        { label: "销量预测", value: sales, max: Math.max(sales, 1), unit: "份" },
+      ];
+
+      factors.forEach(f => {
+        const pct = Math.min(100, (f.value / Math.max(f.max, 1)) * 100);
+        html += `<div class="result-viz-bar">
+          <div class="result-viz-label">${escapeHtml(f.label)}</div>
+          <div class="result-viz-track">
+            <div class="result-viz-fill" style="width:${pct}%;background:var(--accent);"></div>
+          </div>
+          <div class="result-viz-value">${formatNumber(f.value)} ${escapeHtml(f.unit)}</div>
+        </div>`;
+      });
+
+      // Long tail estimate
+      if (annualLongTail && annualLongTail > 0) {
+        html += `<div style="margin-top:14px;padding:12px;border-radius:12px;background:rgba(31,122,82,0.08);border:1px solid rgba(31,122,82,0.2);">
+          <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:4px;">📅 长尾年销量预估</div>
+          <div style="font-size:24px;font-weight:700;color:var(--accent);">${formatNumber(annualLongTail)} 份/年</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;">基于 CL 模型的长期销售衰减曲线估算</div>
+        </div>`;
+      }
+
+      container.innerHTML = html;
+      vizCard.style.display = "block";
+    }
+
+    // ── End Analysis Result Visualization ──────────────────────────────
 
     async function runScenario(scenarioName) {
       const scenarioMods = {
@@ -3647,9 +3847,44 @@
 
       window.localStorage.setItem(storageKey, backendUrl);
       statusText.textContent = "当前状态：正在获取讨论数据...";
-      discussionContent.innerHTML = '<p style="color:var(--muted);">加载中...</p>';
       discussionError.style.display = "none";
       discussionSourcesList.innerHTML = "";
+      // Show animated source loading progress
+      const loadingHTML = `
+        <div class="disc-loading-bar-container">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-size:14px;font-weight:600;color:var(--accent);">🔄 正在获取讨论数据</span>
+            <span id="disc-loading-count" style="font-size:12px;color:var(--muted);">0 / 0 源</span>
+          </div>
+          <div id="disc-loading-bars" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
+          <div style="height:6px;border-radius:999px;background:rgba(16,34,24,0.08);overflow:hidden;">
+            <div id="disc-loading-progress" style="height:100%;width:0%;border-radius:999px;background:var(--accent);transition:width 0.4s ease;"></div>
+          </div>
+        </div>
+      `;
+      discussionContent.innerHTML = loadingHTML;
+      const discLoadingBars = document.getElementById("disc-loading-bars");
+      const discLoadingProgress = document.getElementById("disc-loading-progress");
+      const discLoadingCount = document.getElementById("disc-loading-count");
+
+      // Pre-create source progress bars
+      function createSourceBars(sourceList) {
+        discLoadingBars.innerHTML = "";
+        sourceList.forEach((s, i) => {
+          const bar = document.createElement("div");
+          bar.id = `disc-src-loading-${i}`;
+          bar.innerHTML = `
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:12px;font-weight:500;min-width:80px;color:var(--accent-2);">${escapeHtml(s)}</span>
+              <div style="flex:1;height:6px;border-radius:999px;background:rgba(16,34,24,0.06);overflow:hidden;">
+                <div id="disc-src-bar-${i}" style="height:100%;width:0%;border-radius:999px;background:var(--muted);transition:width 0.5s ease, background 0.3s ease;"></div>
+              </div>
+              <span id="disc-src-status-${i}" style="font-size:11px;color:var(--muted);min-width:24px;">等待中</span>
+            </div>`;
+          discLoadingBars.appendChild(bar);
+        });
+      }
+      createSourceBars(["Reddit", "YouTube", "Bilibili"]);
 
       try {
         const response = await fetch(`${backendUrl}/api/discussion`, {
@@ -3665,14 +3900,46 @@
         const results = data.results || [];
         currentDiscussionData = results;
 
-        // Show source types
+        // Update source loading progress
         const sources = data.sources || [];
+        const sourceTypes = results.map(r => r.source_type || "Unknown");
         if (sources.length > 0) {
+          // Update source pills
           let sourcesHtml = '<span style="font-size:12px;color:var(--muted);margin-right:8px;">可用源：</span>';
           sources.forEach(s => {
             sourcesHtml += `<span style="display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;background:rgba(31,122,82,0.1);color:var(--accent);font-weight:500;">${escapeHtml(s)}</span>`;
           });
           discussionSourcesList.innerHTML = sourcesHtml;
+
+          // Update individual source progress bars
+          const knownSources = ["Reddit", "YouTube", "Bilibili"];
+          sources.forEach((s, idx) => {
+            const barIdx = knownSources.indexOf(s);
+            if (barIdx >= 0) {
+              const bar = document.getElementById(`disc-src-bar-${barIdx}`);
+              const status = document.getElementById(`disc-src-status-${barIdx}`);
+              if (bar) {
+                bar.style.width = "100%";
+                bar.style.background = "var(--accent)";
+              }
+              if (status) status.textContent = "可用";
+            }
+          });
+          // Mark unavailable sources
+          knownSources.forEach((s, idx) => {
+            if (!sources.includes(s)) {
+              const bar = document.getElementById(`disc-src-bar-${idx}`);
+              const status = document.getElementById(`disc-src-status-${idx}`);
+              if (bar) {
+                bar.style.width = "60%";
+                bar.style.background = "rgba(213,91,45,0.4)";
+              }
+              if (status) status.textContent = "不可用";
+            }
+          });
+          discLoadingCount.textContent = `${sources.length} / ${knownSources.length} 源`;
+          const totalPct = Math.round((sources.length / knownSources.length) * 100);
+          if (discLoadingProgress) discLoadingProgress.style.width = `${totalPct}%`;
         }
 
         if (results.length === 0) {

@@ -1,5 +1,13 @@
+# Webber 2026/06/12 迭代: 修复讨论面板未定义变量 + Streamlit 校准面板可视化增强 + 移动端响应式优化
 from __future__ import annotations
 
+import csv
+import io
+import json
+import os
+from pathlib import Path
+
+import httpx
 import pandas as pd
 import streamlit as st
 
@@ -7,12 +15,152 @@ from steam_publisher_predictor.models import ManualInputs
 from steam_publisher_predictor.services import calculator
 from steam_publisher_predictor.services import benchmark as benchmark_service
 from steam_publisher_predictor.services import scenarios as scenario_service
+from steam_publisher_predictor.services import calibration as cal_service
 from steam_publisher_predictor.services.steam_client import SteamClient, SteamClientError
 from steam_publisher_predictor.services.storage import record as storage
+
+# ---------------------------------------------------------------------------
+# API helpers (used by Streamlit UI to talk to the FastAPI backend)
+# ---------------------------------------------------------------------------
+
+_API_BASE = os.environ.get("SP_API_URL", "http://localhost:8000")
+
+
+def _fetch_discussion(game_query: str) -> dict | None:
+    """Fetch discussion data via the FastAPI backend."""
+    try:
+        with httpx.Client(timeout=15) as client:
+            resp = client.post(f"{_API_BASE}/api/discussion", json={"query": game_query})
+            if resp.status_code == 200:
+                return resp.json()
+            return None
+    except Exception:
+        return None
+
+
+def _get_calibration() -> dict | None:
+    try:
+        with httpx.Client(timeout=10) as client:
+            resp = client.get(f"{_API_BASE}/api/calibration")
+            if resp.status_code == 200:
+                return resp.json()
+            return None
+    except Exception:
+        return None
+
+
+def _update_calibration(updates: dict) -> dict | None:
+    try:
+        with httpx.Client(timeout=10) as client:
+            resp = client.put(f"{_API_BASE}/api/calibration", json=updates)
+            if resp.status_code == 200:
+                return resp.json()
+            return None
+    except Exception:
+        return None
+
+
+def _get_seed_cal_games() -> list[dict] | None:
+    """Fetch calibration seed games from the FastAPI backend."""
+    try:
+        with httpx.Client(timeout=10) as client:
+            resp = client.get(f"{_API_BASE}/api/cal_games")
+            if resp.status_code == 200:
+                return resp.json().get("games", [])
+            return None
+    except Exception:
+        return None
+
+
+def _run_calibrate_api() -> dict | None:
+    """Run calibration on all seed games via the FastAPI backend."""
+    try:
+        with httpx.Client(timeout=30) as client:
+            resp = client.post(f"{_API_BASE}/api/calibrate", json={})
+            if resp.status_code == 200:
+                return resp.json()
+            return None
+    except Exception:
+        return None
+
+
+def _export_csv(result, game) -> bytes:
+    """Export benchmark comparison + scenario summary as CSV."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Section", "Metric", "Value"])
+    # Benchmark comparison
+    writer.writerow(["Benchmark Comparison", "", ""])
+    benchmark_file = benchmark_service.load_benchmark_file()
+    if benchmark_file and benchmark_file.records:
+        comparison_rows = benchmark_service.compare_vs_benchmarks(result, benchmark_file.records)
+        writer.writerow(["Benchmark", "Game", "Quality", "Quality Δ", "CL", "CL Δ", "User Pool", "Pool Δ", "Sales", "Sales Δ"])
+        for r in comparison_rows:
+            writer.writerow([
+                r.benchmark_game,
+                r.benchmark_game,
+                f"{r.quality_score:.1f}",
+                f"{r.quality_diff:+.2f}",
+                f"{r.cl_score:.2f}",
+                f"{r.cl_diff:+.2f}",
+                f"{r.user_pool:,}",
+                f"{r.pool_diff:,.0f}",
+                f"{r.sales:,}",
+                f"{r.sales_diff:,.0f}",
+            ])
+    # Scenario summary
+    writer.writerow(["Scenario Comparison", "", ""])
+    scenarios_data = st.session_state.get("scenarios_data", {})
+    for sname, sr in scenarios_data.items():
+        writer.writerow([sname, "Sales", f"{sr.result.sales:,.0f}"])
+        writer.writerow([sname, "CL Score", f"{sr.result.cl_score:.3f}"])
+        writer.writerow([sname, "Quality", f"{sr.result.quality.quality_score:.2f}"])
+        writer.writerow([sname, "User Pool", f"{sr.result.user_pool.estimated_user_pool:,}"])
+    return output.getvalue().encode("utf-8")
+
+
+def _export_json(result, game) -> bytes:
+    """Export full analysis result as JSON."""
+    from dataclasses import asdict
+    export_data = {
+        "game": {
+            "name": game.name,
+            "app_id": game.app_id,
+            "price_usd": game.price_usd,
+            "release_date": game.release_date,
+        },
+        "sales": result.sales,
+        "cl_score": result.cl_score,
+        "quality": asdict(result.quality) if hasattr(result.quality, "__dataclass_fields__") else vars(result.quality),
+        "user_pool": {
+            "estimated_user_pool": result.user_pool.estimated_user_pool,
+        },
+        "manual_inputs": asdict(result.manual_inputs) if hasattr(result.manual_inputs, "__dataclass_fields__") else vars(result.manual_inputs),
+    }
+    return json.dumps(export_data, indent=2, ensure_ascii=False).encode("utf-8")
 
 
 def main() -> None:
     st.set_page_config(page_title="Steam Publisher Predictor", page_icon="chart_with_upwards_trend", layout="wide")
+    st.markdown("""
+    <style>
+    /* Webber 2026/06/12 移动端响应式优化 */
+    @media (max-width: 768px) {
+        .stDataFrame { font-size: 12px !important; }
+        .stMetric { font-size: 14px !important; }
+        .stSubheader { font-size: 18px !important; }
+        .stCaption { font-size: 12px !important; }
+        .css-1r6slb0 { padding: 8px !important; }
+        section.main > div { padding-top: 2rem !important; }
+        .stNumberInput > div > div { font-size: 14px !important; }
+        .stSlider > div { padding: 0 4px !important; }
+    }
+    /* Touch-friendly number inputs */
+    input[type="number"] { min-height: 44px !important; font-size: 16px !important; }
+    /* Wider tables on mobile */
+    .stDataFrame div[role="table"] { overflow-x: auto !important; }
+    </style>
+    """, unsafe_allow_html=True)
     st.title("Steam Publisher Predictor")
     st.caption("Fetch Steam data, score quality, map user pool, then estimate sales with the structured model.")
 
@@ -157,6 +305,217 @@ def main() -> None:
         if game.steamdb.unavailable_reason:
             st.warning(f"SteamDB unavailable: {game.steamdb.unavailable_reason}")
 
+        # ★ Next-iteration: SteamDB + Quality linkage
+        if st.button("📊 查看 SteamDB 与质量评分联动", use_container_width=True):
+            st.info(f"SteamDB 信号用于补充质量评估的 **Discussion strength** 和 **Persistence strength** 计算。"
+                    f"当前质量评估置信度: {confidence_pct:.0f}%。"
+                    f"SteamDB 的 Current Players ({game.steamdb.current_players or 'N/A'}) "
+                    f"和 24h Peak ({game.steamdb.peak_24h or 'N/A'}) 可作为讨论强度的辅助信号。")
+
+    # ★ New: Discussion Data Panel
+    st.markdown("---")
+    st.subheader("💬 讨论数据面板")
+    st.caption("Across-platform discussion data: Reddit, YouTube, Bilibili. Improves quality confidence.")
+
+    col_disc_left, col_disc_right = st.columns([3, 1])
+    with col_disc_left:
+        disc_query = st.text_input(
+            "Game query for discussion",
+            value=query.strip(),
+            key="disc_query_input",
+        )
+    with col_disc_right:
+        disc_fetch = st.button("🔍 Fetch Discussion Data", type="primary", use_container_width=True)
+
+    disc_results = st.session_state.get("disc_results")
+    if disc_fetch and disc_query.strip():
+        with st.spinner("Fetching discussion data across platforms..."):
+            disc_data = _fetch_discussion(disc_query.strip())
+            if disc_data:
+                st.session_state["disc_results"] = disc_data
+                disc_results = disc_data
+                st.session_state["disc_game_name"] = disc_query.strip()
+            else:
+                st.warning("Discussion API returned no data. Backend may be running on a different URL. Set SP_API_URL env var.")
+
+    if disc_results:
+        # Show registered sources summary
+        sources = disc_results.get("sources", [])
+        total_sources = len(sources)
+        success_sources = sum(1 for s in sources if s.get("status") == "normal")
+        disc_confidence = success_sources / total_sources if total_sources > 0 else 0
+
+        metric_cols = st.columns(4)
+        metric_cols[0].metric("讨论源总数", total_sources)
+        metric_cols[1].metric("成功源数", success_sources)
+        metric_cols[2].metric("讨论质量评分", f"{disc_confidence:.0%}")
+
+        success_sources_list = [s for s in sources if s.get("status") == "normal"]
+        failed_sources_list = [s for s in sources if s.get("status") != "normal"]
+
+        # Discussion quality summary cards — aligned with index.html progress bars
+        st.markdown("**📊 讨论数据 → 质量评分贡献**")
+
+        # Aggregate detail text (aligned with index.html renderDiscussionQualitySummary)
+        total_items = sum(src.get("total_results", 0) for src in sources)
+        detail_text = f"共 {total_items} 条讨论结果，来自 {success_sources}/{total_sources} 个可用源"
+
+        # Derive discussion quality signals from the analysis result (Webber 2026/06/12 fix)
+        disc_count_signal = result.quality.discussion_count_signal
+        disc_engagement_signal = result.quality.discussion_engagement_signal
+        disc_strength = result.quality.discussion_strength
+        confidence_pct = result.quality.quality_confidence * 100
+
+        # Helper: progress bar helper
+        def _disc_progress_bar(label: str, value: float, total: float, detail: str, confidence_pct: float = None) -> None:
+            pct = min(1.0, value / total) if total > 0 else 0.0
+            color = "#1f7a52" if value >= 6 else ("#d55b2d" if value >= 3 else "#888")
+            st.markdown(
+                f"**{label}**: <span style='font-size:20px;font-weight:700;color:{color};'>{value:.1f}</span>"
+                f" <span style='color:#666;'>/ {total}</span> — {detail}",
+                unsafe_allow_html=True,
+            )
+            st.progress(pct)
+
+        _disc_progress_bar(
+            "讨论数量信号",
+            disc_count_signal,
+            10.0,
+            detail_text,
+        )
+        _disc_progress_bar(
+            "讨论互动信号",
+            disc_engagement_signal,
+            10.0,
+            f"总互动信号来自 {total_sources} 个数据源",
+        )
+        _disc_progress_bar(
+            "讨论强度综合评分",
+            disc_strength,
+            10.0,
+            f"权重: 数量45% + 互动45% + 热点10%",
+        )
+        _disc_progress_bar(
+            "数据置信度",
+            disc_confidence * 100,
+            100.0,
+            f"{'数据来源充分' if disc_confidence >= 0.7 else '部分数据源不可用，评分可能不完整'}",
+        )
+
+        # Per-source detailed data — aligned with index.html discussion cards
+        available_sources_text = " | ".join(f"✅ {s}" for s in [src.get("source_type", "?") for src in sources if src.get("status") == "normal"]) if sources else "无"
+        failed_sources_text = " | ".join(f"❌ {s}" for s in [src.get("source_type", "?") for src in sources if src.get("status") != "normal"]) if sources else "无"
+        st.markdown(f"**可用源**: {available_sources_text}  |  **不可用源**: {failed_sources_text}")
+
+        if success_sources_list:
+            st.markdown("**📋 各平台详细数据**")
+            for src in success_sources_list:
+                with st.expander(f"📌 {src.get('source_type', 'unknown')} ({src.get('total_results', 0)} 条结果)", expanded=False):
+                    # Show summary table
+                    src_items = src.get("normalized", [])
+                    if src_items:
+                        item_rows = [
+                            {
+                                "标题": item.get("title", "N/A")[:60],
+                                "👍": item.get("upvotes", 0),
+                                "💬": item.get("comments", 0),
+                                "📅": item.get("published", "N/A"),
+                            }
+                            for item in src_items[:20]
+                        ]
+                        st.dataframe(pd.DataFrame(item_rows), use_container_width=True, hide_index=True)
+
+                        # Top videos by engagement (YouTube/Bilibili specific)
+                        top_videos = src.get("top_videos", [])
+                        if top_videos:
+                            st.markdown("**🎬 Top 10 热门视频**")
+                            video_rows = [
+                                {
+                                    "标题": v.get("title", "N/A")[:50],
+                                    "播放量": v.get("total_views", 0),
+                                    "点赞": v.get("likes", 0),
+                                    "评论": v.get("comments", 0),
+                                    "情感分": f"{v.get('sentiment', 0):.3f}",
+                                }
+                                for v in top_videos[:10]
+                            ]
+                            st.dataframe(pd.DataFrame(video_rows), use_container_width=True, hide_index=True)
+                    else:
+                        st.caption(f"{src.get('source_type', 'unknown')}: 未找到相关讨论")
+
+        # Show failed sources with error messages
+        if failed_sources_list:
+            st.markdown("**⚠️ 获取失败的数据源**")
+            for src in failed_sources_list:
+                err_msg = src.get("error_message", "Unknown error")
+                st.warning(f"**{src.get('source_type', 'unknown')}**: {err_msg}")
+
+        # Quality confidence action suggestions (aligned with index.html)
+        if confidence_pct < 40 or len(result.quality.missing_quality_sources) >= 3:
+            st.warning(
+                f"⚠️ **低置信度建议**: 当前质量评估置信度仅 {confidence_pct:.0f}%。"
+                "以上讨论数据可作为补充信息，帮助提升讨论强度信号 → 提升整体质量评分。"
+                "建议前往手动参数面板人工校准讨论相关评分。"
+            )
+        elif confidence_pct < 70:
+            st.info(
+                f"🔸 **中等置信度建议**: 当前质量评估置信度 {confidence_pct:.0f}%。"
+                "建议参考以上讨论数据，并在手动参数面板中调整 Discussion manual score。"
+            )
+
+        # Discussion data export (aligned with index.html discussion export)
+        st.markdown("---")
+        col_export1, col_export2 = st.columns(2)
+        with col_export1:
+            if st.button("📥 导出讨论数据 CSV", use_container_width=True):
+                if disc_results and sources:
+                    # Flatten all discussion items into rows
+                    export_rows = []
+                    for src in sources:
+                        src_name = src.get("source_type", "unknown")
+                        items = src.get("normalized", [])
+                        for item in items:
+                            export_rows.append({
+                                "source": src_name,
+                                "title": item.get("title", ""),
+                                "upvotes": item.get("upvotes", 0),
+                                "comments": item.get("comments", 0),
+                                "views": item.get("views", 0),
+                                "published": item.get("published", ""),
+                                "url": item.get("url", ""),
+                                "has_hot_content": item.get("has_hot_content", False),
+                            })
+                    # Add summary row
+                    export_rows.insert(0, {"source": "SUMMARY", "title": "讨论汇总", "upvotes": "", "comments": "", "views": "", "published": "", "url": "", "has_hot_content": ""})
+                    if export_rows:
+                        df_export = pd.DataFrame(export_rows)
+                        csv_buffer = io.StringIO()
+                        df_export.to_csv(csv_buffer, index=False, encoding="utf-8-sig")
+                        st.download_button(
+                            label="下载 CSV",
+                            data=csv_buffer.getvalue(),
+                            file_name=f"discussion_data_{query.strip()}.csv",
+                            mime="text/csv",
+                            use_container_width=True,
+                        )
+                        st.success(f"导出 {total_items} 条讨论数据（{total_sources} 个数据源）")
+                else:
+                    st.info("暂无讨论数据可导出")
+        with col_export2:
+            if st.button("📥 导出讨论数据 JSON", use_container_width=True):
+                if disc_results:
+                    json_str = json.dumps(disc_results, ensure_ascii=False, indent=2)
+                    st.download_button(
+                        label="下载 JSON",
+                        data=json_str,
+                        file_name=f"discussion_data_{query.strip()}.json",
+                        mime="application/json",
+                        use_container_width=True,
+                    )
+                    st.success("JSON 数据已准备下载")
+                else:
+                    st.info("暂无讨论数据可导出")
+
     bottom_left, bottom_right = st.columns(2)
     with bottom_left:
         st.subheader("CL Breakdown")
@@ -190,6 +549,78 @@ def main() -> None:
             ],
         ]
         st.table(pd.DataFrame(sales_rows, columns=["Metric", "Value"]))
+
+    # ★ New: Calibration Controls Panel
+    st.markdown("---")
+    st.subheader("⚙️ 校准控制面板")
+    st.caption("Adjust quality weight distribution and upper limits. Changes affect subsequent analysis calculations.")
+
+    col_cal1, col_cal2 = st.columns([2, 1])
+    with col_cal1:
+        cal_cfg = _get_calibration()
+        if cal_cfg and "calibration" in cal_cfg:
+            cfg = cal_cfg["calibration"]
+            st.markdown("**权重分配** (总和应为 1.0)")
+            w_cols = st.columns(4)
+            new_rating_w = w_cols[0].number_input("Rating", min_value=0.0, max_value=1.0, value=cfg.get("rating_weight", 0.35), step=0.05, key="cal_rating_w")
+            new_proof_w = w_cols[1].number_input("Proof", min_value=0.0, max_value=1.0, value=cfg.get("proof_weight", 0.25), step=0.05, key="cal_proof_w")
+            new_disc_w = w_cols[2].number_input("Discussion", min_value=0.0, max_value=1.0, value=cfg.get("discussion_weight", 0.25), step=0.05, key="cal_disc_w")
+            new_persist_w = w_cols[3].number_input("Persistence", min_value=0.0, max_value=1.0, value=cfg.get("persistence_weight", 0.15), step=0.05, key="cal_persist_w")
+            total_w = new_rating_w + new_proof_w + new_disc_w + new_persist_w
+            w_color = "🟢" if abs(total_w - 1.0) < 0.01 else "🔴"
+            st.caption(f"{w_color} 权重总和: {total_w:.2f}")
+        else:
+            st.info("校准配置加载失败。请确保 FastAPI 后端正在运行（SP_API_URL 环境变量已设置）。")
+    with col_cal2:
+        st.markdown("**上限控制**")
+        showmanship_cap = st.number_input("Showmanship cap", min_value=0.0, max_value=1.0, value=0.6, step=0.05, key="cal_showcap")
+        cl_cap = st.number_input("CL cap", min_value=0.0, max_value=5.0, value=3.0, step=0.1, key="cal_clcap")
+        quality_threshold = st.number_input("Quality threshold", min_value=0.0, max_value=10.0, value=4.0, step=0.5, key="cal_qthresh")
+
+    if cal_cfg and "calibration" in cal_cfg:
+        if st.button("💾 保存校准配置", type="primary", use_container_width=True):
+            try:
+                updates = {
+                    "rating_weight": new_rating_w,
+                    "proof_weight": new_proof_w,
+                    "discussion_weight": new_disc_w,
+                    "persistence_weight": new_persist_w,
+                    "showmanship_cap": showmanship_cap,
+                    "cl_cap": cl_cap,
+                    "quality_threshold": quality_threshold,
+                }
+                result_resp = _update_calibration(updates)
+                if result_resp:
+                    st.success("✅ 校准配置已保存")
+                else:
+                    st.error("保存失败，请检查后端日志。")
+            except Exception as exc:
+                st.error(f"校准保存失败: {exc}")
+
+    # ★ New: Export section (after model notes)
+    st.markdown("---")
+    st.subheader("📦 数据导出")
+    st.caption("Export benchmark comparison and analysis results.")
+
+    exp_col1, exp_col2 = st.columns(2)
+    with exp_col1:
+        if st.button("📄 导出为 CSV", use_container_width=True):
+            csv_data = _export_csv(result, game)
+            st.download_button(
+                label="下载 CSV",
+                data=csv_data,
+                file_name=f"steam_predictor_{game.name.replace(' ', '_')}_{pd.Timestamp.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+            )
+    with exp_col2:
+        if st.button("📋 导出为 JSON", use_container_width=True):
+            json_data = _export_json(result, game)
+            st.download_button(
+                label="下载 JSON",
+                data=json_data,
+                file_name=f"steam_predictor_{game.name.replace(' ', '_')}_{pd.Timestamp.now().strftime('%Y%m%d')}.json",
+                mime="application/json",
+            )
 
     with st.expander("Model notes"):
         st.markdown(
@@ -244,6 +675,8 @@ def main() -> None:
             scenario_results[sname] = sr
 
         if scenario_results:
+            # Save to session_state for export
+            st.session_state["scenarios_data"] = scenario_results
             comp_cols = st.columns(len(scenario_results))
             for idx, (sname, sr) in enumerate(scenario_results.items()):
                 with comp_cols[idx]:
@@ -378,6 +811,118 @@ def main() -> None:
         st.caption("⚠ SAO_Anchor is a virtual ceiling (SAO = Sales as Of date), not a real sample. Differences are computed as: Current Result − Benchmark Value.")
     else:
         st.info("No benchmark data available. Benchmark seed records will be created automatically on the next run.")
+
+    # ★ New: Calibration Seed Game Comparison (P2 - 对标 index.html 的校准面板)
+    st.markdown("---")
+    st.subheader("🎯 校准种子游戏对比")
+    st.caption("Run calibration on pre-defined seed games to compare computed vs expected results.")
+
+    if "cal_games_data" not in st.session_state:
+        st.session_state["cal_games_data"] = None
+    if "cal_loading" not in st.session_state:
+        st.session_state["cal_loading"] = False
+    if "cal_results" not in st.session_state:
+        st.session_state["cal_results"] = None
+
+    col_cal_ui1, col_cal_ui2 = st.columns([3, 1])
+    with col_cal_ui2:
+        cal_run_btn = st.button("🚀 运行校准计算", type="primary", use_container_width=True)
+
+    if cal_run_btn and not st.session_state.get("cal_loading", False):
+        st.session_state["cal_loading"] = True
+        with st.spinner("正在运行校准计算（后台）..."):
+            cal_api_result = _run_calibrate_api()
+            if cal_api_result:
+                st.session_state["cal_results"] = cal_api_result.get("results", [])
+                st.session_state["cal_loading"] = False
+                st.success(f"✅ 校准计算完成，共 {len(st.session_state['cal_results'])} 个种子游戏")
+            else:
+                st.session_state["cal_loading"] = False
+                st.warning("校准 API 不可用。请确保 FastAPI 后端正在运行（SP_API_URL 环境变量已设置）。")
+                # Fallback: use local seed games
+                local_games = cal_service.get_seed_cal_games()
+                cal_results_local = []
+                for g in local_games:
+                    cr = cal_service.run_calibration(g)
+                    cal_results_local.append(cr)
+                st.session_state["cal_results"] = cal_results_local
+                st.session_state["cal_loading"] = False
+                st.info("✅ 已使用本地种子游戏数据完成校准计算（后端 API 不可用时的降级方案）")
+
+    cal_results = st.session_state.get("cal_results")
+    if cal_results:
+        # Summary table
+        cal_summary = []
+        for cr in cal_results:
+            if isinstance(cr, dict):
+                cal_summary.append({
+                    "Game": cr.get("game_name", cr.get("game_id", "N/A")),
+                    "Sales": f"{cr.get('computed', {}).get('sales', 0):,.0f}",
+                    "Quality": f"{cr.get('computed', {}).get('quality_score', 0):.2f}",
+                    "CL": f"{cr.get('computed', {}).get('cl_score', 0):.3f}",
+                    "User Pool": f"{cr.get('computed', {}).get('user_pool', 0):,.0f}",
+                    "Sales Δ": f"{cr.get('deviation', {}).get('sales_pct', 0):+.1f}%",
+                    "Quality Δ": f"{cr.get('deviation', {}).get('quality_pct', 0):+.1f}%",
+                    "CL Δ": f"{cr.get('deviation', {}).get('cl_pct', 0):+.1f}%",
+                    "Pool Δ": f"{cr.get('deviation', {}).get('pool_pct', 0):+.1f}%",
+                })
+            else:
+                cal_summary.append({
+                    "Game": cr.game_name,
+                    "Sales": f"{cr.computed['sales']:,.0f}",
+                    "Quality": f"{cr.computed['quality_score']:.2f}",
+                    "CL": f"{cr.computed['cl_score']:.3f}",
+                    "User Pool": f"{cr.computed['user_pool']:,.0f}",
+                    "Sales Δ": f"{cr.deviation.get('sales_pct', 0):+.1f}%",
+                    "Quality Δ": f"{cr.deviation.get('quality_pct', 0):+.1f}%",
+                    "CL Δ": f"{cr.deviation.get('cl_pct', 0):+.1f}%",
+                    "Pool Δ": f"{cr.deviation.get('pool_pct', 0):+.1f}%",
+                })
+
+        if cal_summary:
+            st.dataframe(pd.DataFrame(cal_summary), use_container_width=True, hide_index=True)
+
+            # Highlight high deviation
+            st.caption("🟢 偏差 < 20% | 🟡 偏差 20-50% | 🔴 偏差 > 50%")
+
+            # Visual deviation chart (Webber 2026/06/12 enhancement)
+            st.markdown("---")
+            st.subheader("📊 偏差可视化")
+            cal_chart_data = []
+            for s in cal_summary:
+                sales_delta = float(s.get("Sales Δ", "0%").replace("+", "").replace("%", ""))
+                cal_chart_data.append({
+                    "Game": s.get("Game", ""),
+                    "Sales Deviation %": sales_delta,
+                })
+            df_chart = pd.DataFrame(cal_chart_data)
+            if not df_chart.empty:
+                st.bar_chart(df_chart.set_index("Game"), horizontal=True, y_min=-50, y_max=50)
+                st.caption("蓝色柱 = 负偏差（模型低估），橙色柱 = 正偏差（模型高估）。理想值为 0%。")
+
+            # Per-game detailed view
+            st.markdown("---")
+            st.subheader("📋 逐游戏详情")
+            game_names = [s.get("Game", s.get("game_name", "")) for s in cal_summary]
+            selected_game = st.selectbox("选择游戏查看详情", game_names)
+            if selected_game:
+                idx = game_names.index(selected_game)
+                cr = cal_results[idx] if isinstance(cal_results, list) else None
+                if cr:
+                    if isinstance(cr, dict):
+                        st.markdown(f"**游戏**: {cr.get('game_name', 'N/A')}")
+                        st.markdown(f"**ID**: {cr.get('game_id', 'N/A')}")
+                        st.json(cr.get("computed", {}))
+                        st.json(cr.get("deviation", {}))
+                    else:
+                        st.markdown(f"**游戏**: {cr.game_name}")
+                        st.markdown(f"**ID**: {cr.game_id}")
+                        st.json(cr.computed)
+                        st.json(cr.deviation)
+
+    if cal_results is None and not st.session_state.get("cal_loading"):
+        st.info("点击「运行校准计算」按钮，对所有种子游戏进行校准分析。结果将展示计算值与预期范围的偏差。")
+        st.caption("种子游戏包括：Balatro、Stardew Valley、Minecraft、Palworld、暖雪、完蛋、VS。")
 
 
 def _render_game_summary(game) -> None:

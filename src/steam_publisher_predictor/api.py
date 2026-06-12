@@ -47,6 +47,50 @@ class ScenarioRequest(BaseModel):
     manual_inputs: dict[str, object] | None = None
 
 
+# ── Benchmark compare helper (extracted to eliminate inline class duplication) ──
+
+
+def _build_sales_result_from_dict(sales_result: dict) -> object:
+    """Build a minimal SalesBreakdown-like object from a dict payload.
+
+    Used by the benchmark_compare endpoint to adapt JSON payloads into
+    the structure expected by benchmark_service.compare_vs_benchmarks().
+    """
+    quality_data = sales_result.get("quality", {})
+    user_pool_data = sales_result.get("user_pool", {})
+
+    class _Quality:
+        quality_score = quality_data.get("quality_score", 0)
+        quality_confidence = quality_data.get("quality_confidence", 0)
+        rating_strength = quality_data.get("rating_strength", 0)
+        rating_confidence = quality_data.get("rating_confidence", 0)
+        proof_strength = quality_data.get("proof_strength", 0)
+        discussion_count_signal = quality_data.get("discussion_count_signal", 0)
+        discussion_engagement_signal = quality_data.get("discussion_engagement_signal", 0)
+        discussion_sentiment_signal = quality_data.get("discussion_sentiment_signal", 0)
+        discussion_strength = quality_data.get("discussion_strength", 0)
+        persistence_strength = quality_data.get("persistence_strength", 0)
+        analyst_adjustment = quality_data.get("analyst_adjustment", 0)
+        missing_quality_sources = quality_data.get("missing_quality_sources", [])
+
+    class _UserPool:
+        estimated_user_pool = user_pool_data.get("estimated_user_pool", 0)
+        weighted_genre_sum = user_pool_data.get("weighted_genre_sum", 0)
+        overlap_adjustment = user_pool_data.get("overlap_adjustment", 0)
+        platform_fit = user_pool_data.get("platform_fit", 0)
+        region_fit = user_pool_data.get("region_fit", 0)
+        price_fit = user_pool_data.get("price_fit", 0)
+        matches = user_pool_data.get("matches", [])
+
+    class _SalesResult:
+        sales = sales_result.get("sales", 0)
+        cl_score = sales_result.get("cl_score", 0)
+        quality = _Quality()
+        user_pool = _UserPool()
+
+    return _SalesResult()
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="Steam Publisher Predictor API", version="0.1.0")
     allowed_origins = get_allowed_origins()
@@ -135,46 +179,12 @@ def create_app() -> FastAPI:
             return {"comparison": [], "message": "No analysis data provided"}
         benchmark_service.ensure_benchmark_exists()
         bf = benchmark_service.load_benchmark_file()
-        from dataclasses import asdict
-        from steam_publisher_predictor.models import SalesBreakdown
         if bf is None:
             return {"comparison": [], "message": "No benchmark data"}
 
-        # Build a minimal SalesBreakdown-like structure for comparison
-        quality_data = sales_result.get("quality", {})
-        user_pool_data = sales_result.get("user_pool", {})
-
-        class _Quality:
-            quality_score = quality_data.get("quality_score", 0)
-            quality_confidence = quality_data.get("quality_confidence", 0)
-            rating_strength = quality_data.get("rating_strength", 0)
-            rating_confidence = quality_data.get("rating_confidence", 0)
-            proof_strength = quality_data.get("proof_strength", 0)
-            discussion_count_signal = quality_data.get("discussion_count_signal", 0)
-            discussion_engagement_signal = quality_data.get("discussion_engagement_signal", 0)
-            discussion_sentiment_signal = quality_data.get("discussion_sentiment_signal", 0)
-            discussion_strength = quality_data.get("discussion_strength", 0)
-            persistence_strength = quality_data.get("persistence_strength", 0)
-            analyst_adjustment = quality_data.get("analyst_adjustment", 0)
-            missing_quality_sources = quality_data.get("missing_quality_sources", [])
-
-        class _UserPool:
-            estimated_user_pool = user_pool_data.get("estimated_user_pool", 0)
-            weighted_genre_sum = user_pool_data.get("weighted_genre_sum", 0)
-            overlap_adjustment = user_pool_data.get("overlap_adjustment", 0)
-            platform_fit = user_pool_data.get("platform_fit", 0)
-            region_fit = user_pool_data.get("region_fit", 0)
-            price_fit = user_pool_data.get("price_fit", 0)
-            matches = user_pool_data.get("matches", [])
-
-        class _SalesResult:
-            sales = sales_result.get("sales", 0)
-            cl_score = sales_result.get("cl_score", 0)
-            quality = _Quality()
-            user_pool = _UserPool()
-
+        sales_obj = _build_sales_result_from_dict(sales_result)
         records = [benchmark_service._dict_to_record(r) for r in bf.records]
-        comparison = benchmark_service.compare_vs_benchmarks(_SalesResult(), records)
+        comparison = benchmark_service.compare_vs_benchmarks(sales_obj, records)
         return {
             "comparison": [asdict(r) for r in comparison],
             "benchmarks": bf.to_dict(),
