@@ -1,4 +1,4 @@
-<!-- Webber 2026/06/11 迭代完成: 讨论数据加载动画优化 + 多源进度条 + 质量置信度增强 + 移动端响应式 + 快速讨论获取 + 标杆对比 + 校准面板 + 导出功能 + SteamDB批量 + 讨论数据进度条 + 快速讨论获取按钮 + 移动端讨论面板优化 + 分析结果可视化增强 + 分析结果数据可视化(质量条形图/CL流程/销量公式) -->
+<!-- Webber 2026/06/13 迭代完成: 场景对比可视化增强 + 场景对比摘要图表 + 场景对比完整流程 + 标杆对比可视化 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -2000,6 +2000,12 @@
       qualityQuickLink.innerHTML = `<button class="button button-secondary" style="font-size:12px;padding:6px 12px;" onclick="navigateToDiscussionPanel('${escapeHtml(gameNameForDiscussion)}')">📊 前往讨论数据面板 →</button>`;
       qualitySummary.appendChild(qualityQuickLink);
 
+      // Quick link to scenario comparison
+      const scenarioQuickLink = document.createElement("div");
+      scenarioQuickLink.style.cssText = "margin-top:6px;font-size:13px;";
+      scenarioQuickLink.innerHTML = `<button class="button button-secondary" style="font-size:12px;padding:6px 12px;" onclick="runScenarioComparison()">📊 运行场景对比 →</button>`;
+      qualitySummary.appendChild(scenarioQuickLink);
+
       const poolMatches = Array.isArray(pool.matches) && pool.matches.length
         ? pool.matches.map(item => `${item.genre_name} (${formatNumber(item.weighted_pool)})`).join(" / ")
         : "暂无映射";
@@ -2338,17 +2344,24 @@
     function renderScenario(scenarioName, result) {
       const analysis = result.analysis || {};
       const pool = result.analysis.user_pool || {};
+      const quality = analysis.quality || {};
 
       const headlineEl = document.getElementById(`scenario-${scenarioName}-sales`);
       const kvEl = document.getElementById(`scenario-${scenarioName}-kv`);
       if (!headlineEl || !kvEl) return;
 
-      headlineEl.textContent = formatNumber(analysis.sales) + " 份";
+      const scenarioLabels = {
+        conservative: "保守方案",
+        baseline: "基准方案",
+        optimistic: "乐观方案",
+      };
+      headlineEl.textContent = scenarioLabels[scenarioName] || scenarioName;
       fillKv(kvEl, [
-        ["CL", analysis.cl_score ? Number(analysis.cl_score).toFixed(2) : "0.00"],
+        ["销量预测", formatNumber(analysis.sales)],
+        ["CL 得分", analysis.cl_score ? Number(analysis.cl_score).toFixed(2) : "0.00"],
+        ["质量分", quality.quality_score ? Number(quality.quality_score).toFixed(1) : "0.0"],
         ["基础转化", analysis.base_conversion ? Number(analysis.base_conversion).toFixed(4) : "0.0000"],
         ["用户池", formatNumber(pool.estimated_user_pool)],
-        ["销量预测", formatNumber(analysis.sales)],
       ]);
     }
 
@@ -2411,26 +2424,28 @@
           card.className = "result-card";
           card.innerHTML = `
             <div class="result-title">${scenarioLabels[sName]}</div>
-            <div class="result-headline" id="scenario-${sName}-sales">${formatNumber(analysis.sales)} 份</div>
+            <div class="result-headline" id="scenario-${sName}-sales">-</div>
             <div class="kv" id="scenario-${sName}-kv"></div>
           `;
           scenarioGrid.appendChild(card);
 
-          // Re-render after DOM insertion
+          // Populate after DOM insertion
           requestAnimationFrame(() => {
             const kvEl = document.getElementById(`scenario-${sName}-kv`);
             if (kvEl) {
+              const quality = data.analysis.quality || {};
               fillKv(kvEl, [
-                ["CL", Number(analysis.cl_score).toFixed(2)],
+                ["销量预测", formatNumber(analysis.sales)],
+                ["CL 得分", Number(analysis.cl_score).toFixed(2)],
+                ["质量分", quality.quality_score ? Number(quality.quality_score).toFixed(1) : "0.0"],
                 ["基础转化", Number(analysis.base_conversion).toFixed(4)],
                 ["用户池", formatNumber(pool.estimated_user_pool)],
-                ["销量预测", formatNumber(analysis.sales)],
               ]);
             }
           });
         }
 
-        // Add comparison summary card
+        // Add comparison summary card with visual chart
         const summaryCard = document.createElement("article");
         summaryCard.className = "result-card full";
         const conservativeSales = scenarios.conservative?.analysis?.sales || 0;
@@ -2438,15 +2453,75 @@
         const optimisticSales = scenarios.optimistic?.analysis?.sales || 0;
         const spread = optimisticSales - conservativeSales;
         const spreadPct = conservativeSales > 0 ? Math.round((spread / conservativeSales) * 100) : 0;
+
+        // Also collect CL and user_pool for each scenario
+        const conservativeCL = scenarios.conservative?.analysis?.cl_score || 0;
+        const baselineCL = scenarios.baseline?.analysis?.cl_score || 0;
+        const optimisticCL = scenarios.optimistic?.analysis?.cl_score || 0;
+        const conservativePool = scenarios.conservative?.analysis?.user_pool?.estimated_user_pool || 0;
+        const baselinePool = scenarios.baseline?.analysis?.user_pool?.estimated_user_pool || 0;
+        const optimisticPool = scenarios.optimistic?.analysis?.user_pool?.estimated_user_pool || 0;
+        const conservativeQuality = scenarios.conservative?.analysis?.quality?.quality_score || 0;
+        const baselineQuality = scenarios.baseline?.analysis?.quality?.quality_score || 0;
+        const optimisticQuality = scenarios.optimistic?.analysis?.quality?.quality_score || 0;
+
+        const maxSales = Math.max(conservativeSales, baselineSales, optimisticSales, 1);
+        const maxCL = Math.max(conservativeCL, baselineCL, optimisticCL, 1);
+        const maxQuality = Math.max(conservativeQuality, baselineQuality, optimisticQuality, 1);
+
+        const scenarioColors = {
+          conservative: "var(--accent-2)",
+          baseline: "var(--accent)",
+          optimistic: "#3db87e",
+        };
+        const scenarioLabels = {
+          conservative: "保守方案",
+          baseline: "基准方案",
+          optimistic: "乐观方案",
+        };
+
+        function makeBar(label, conservative, baseline, optimistic, colorKey, valueLabel, maxVal) {
+          const cPct = Math.min(100, (conservative / maxVal) * 100);
+          const bPct = Math.min(100, (baseline / maxVal) * 100);
+          const oPct = Math.min(100, (optimistic / maxVal) * 100);
+          const cColor = scenarioColors[colorKey === 'conservative' ? 'conservative' : 'baseline'];
+          const bColor = scenarioColors[colorKey === 'baseline' ? 'baseline' : 'conservative'];
+          const oColor = scenarioColors['optimistic'];
+
+          return `
+            <div style="margin-bottom:14px;">
+              <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--ink);">${label}</div>
+              <div style="display:grid;grid-template-columns:140px 1fr 60px;gap:8px;align-items:center;margin-bottom:4px;">
+                <div style="font-size:11px;color:var(--accent-2);text-align:right;">${scenarioLabels.conservative}</div>
+                <div class="result-viz-track"><div class="result-viz-fill" style="width:${cPct}%;background:var(--accent-2);"></div></div>
+                <div style="font-size:12px;font-family:IBM Plex Mono,monospace;text-align:right;">${valueLabel(conservative)}</div>
+              </div>
+              <div style="display:grid;grid-template-columns:140px 1fr 60px;gap:8px;align-items:center;margin-bottom:4px;">
+                <div style="font-size:11px;color:var(--accent);text-align:right;">${scenarioLabels.baseline}</div>
+                <div class="result-viz-track"><div class="result-viz-fill" style="width:${bPct}%;background:var(--accent);"></div></div>
+                <div style="font-size:12px;font-family:IBM Plex Mono,monospace;text-align:right;">${valueLabel(baseline)}</div>
+              </div>
+              <div style="display:grid;grid-template-columns:140px 1fr 60px;gap:8px;align-items:center;">
+                <div style="font-size:11px;color:#3db87e;text-align:right;">${scenarioLabels.optimistic}</div>
+                <div class="result-viz-track"><div class="result-viz-fill" style="width:${oPct}%;background:#3db87e;"></div></div>
+                <div style="font-size:12px;font-family:IBM Plex Mono,monospace;text-align:right;">${valueLabel(optimistic)}</div>
+              </div>
+            </div>`;
+        }
+
         summaryCard.innerHTML = `
           <div class="result-title">场景对比摘要</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:16px;">
             <div class="metric"><div class="metric-value" style="color:var(--accent-2);">${formatNumber(conservativeSales)}</div><div class="metric-name">保守方案销量</div></div>
             <div class="metric"><div class="metric-value" style="color:var(--accent);">${formatNumber(baselineSales)}</div><div class="metric-name">基准方案销量</div></div>
             <div class="metric"><div class="metric-value" style="color:var(--accent);">${formatNumber(optimisticSales)}</div><div class="metric-name">乐观方案销量</div></div>
             <div class="metric"><div class="metric-value">${spreadPct}%</div><div class="metric-name">保守→乐观 增幅</div></div>
           </div>
-        `;
+          <div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.4);border:1px solid var(--line);">
+            ${makeBar("销量对比", conservativeSales, baselineSales, optimisticSales, "conservative", v => formatNumber(v) + " 份", maxSales)}
+            ${makeBar("CL 得分对比", conservativeCL, baselineCL, optimisticCL, "conservative", v => Number(v).toFixed(2), maxCL)}
+            ${makeBar("质量分对比", conservativeQuality, baselineQuality, optimisticQuality, "conservative", v => Number(v).toFixed(1), maxQuality)}
+          </div>`;
         scenarioGrid.appendChild(summaryCard);
 
         statusText.textContent = "当前状态：场景对比完成。";
@@ -2602,12 +2677,32 @@
           });
           compHtml += '</tbody></table>';
 
-          // Add summary card
+          // Add visual comparison chart + summary card
           const totalSalesDiff = comparison.reduce((sum, c) => sum + (Number(c.sales_diff) || 0), 0);
-          compHtml += `<p style="margin-top:14px;font-size:14px;color:var(--muted);">
-            当前游戏：<strong>${escapeHtml(currentName)}</strong> — 销量预测：<strong>${formatNumber(lastAnalysisData?.sales)}</strong> 份
+          const currentSales = Number(lastAnalysisData?.sales) || 0;
+          const maxDiff = Math.max(...comparison.map(c => Math.abs(Number(c.sales_diff) || 0)), 1);
+
+          compHtml += `<div style="margin-top:14px;padding:14px;border-radius:14px;background:rgba(255,255,255,0.4);border:1px solid var(--line);">`;
+          compHtml += `<div style="font-size:13px;font-weight:600;margin-bottom:10px;">📊 销量差异可视化（当前游戏 vs 标杆）</div>`;
+
+          comparison.forEach(c => {
+            const diff = Number(c.sales_diff) || 0;
+            const pct = Math.min(100, (Math.abs(diff) / maxDiff) * 100);
+            const color = diff >= 0 ? "var(--accent)" : "var(--accent-2)";
+            const sign = diff >= 0 ? "+" : "";
+            compHtml += `<div style="display:grid;grid-template-columns:100px 1fr 60px;gap:8px;align-items:center;margin-bottom:6px;">
+              <div style="font-size:12px;font-weight:500;">${escapeHtml(c.benchmark_game)}</div>
+              <div class="result-viz-track"><div class="result-viz-fill" style="width:${pct}%;background:${color};"></div></div>
+              <div style="font-size:12px;font-family:IBM Plex Mono,monospace;text-align:right;color:${color};">${sign}${formatNumber(diff)}</div>
+            </div>`;
+          });
+
+          compHtml += `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);">
+            当前游戏：<strong>${escapeHtml(currentName)}</strong> — 销量预测：<strong>${formatNumber(currentSales)}</strong> 份
             ${comparison.length > 0 ? ` — 对比 ${comparison.length} 个标杆` : ''}
-          </p>`;
+            ${totalSalesDiff !== 0 ? ` — 总差异：${totalSalesDiff >= 0 ? '+' : ''}${formatNumber(totalSalesDiff)} 份` : ''}
+          </div>`;
+          compHtml += `</div>`;
 
           benchmarkComparisonTable.innerHTML = compHtml;
         }

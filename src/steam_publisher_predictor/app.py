@@ -1,4 +1,4 @@
-# Webber 2026/06/12 迭代: 修复讨论面板未定义变量 + Streamlit 校准面板可视化增强 + 移动端响应式优化
+# Webber 2026/06/13 迭代: 校准种子游戏对比增强 (P2) — 多维偏差可视化 + 结构化详情卡片 + 单游戏选择 + 导出功能
 from __future__ import annotations
 
 import csv
@@ -812,10 +812,10 @@ def main() -> None:
     else:
         st.info("No benchmark data available. Benchmark seed records will be created automatically on the next run.")
 
-    # ★ New: Calibration Seed Game Comparison (P2 - 对标 index.html 的校准面板)
+    # ★ Calibration Seed Game Comparison (Enhanced P2 - 对标 index.html 的校准面板)
     st.markdown("---")
     st.subheader("🎯 校准种子游戏对比")
-    st.caption("Run calibration on pre-defined seed games to compare computed vs expected results.")
+    st.caption("对预定义的标杆游戏运行完整的销量预测公式，将计算结果与预期范围对照，识别模型偏差方向与幅度。")
 
     if "cal_games_data" not in st.session_state:
         st.session_state["cal_games_data"] = None
@@ -824,7 +824,8 @@ def main() -> None:
     if "cal_results" not in st.session_state:
         st.session_state["cal_results"] = None
 
-    col_cal_ui1, col_cal_ui2 = st.columns([3, 1])
+    # Control bar: run button + select individual game
+    col_cal_ui1, col_cal_ui2, col_cal_ui3 = st.columns([3, 1, 2])
     with col_cal_ui2:
         cal_run_btn = st.button("🚀 运行校准计算", type="primary", use_container_width=True)
 
@@ -851,74 +852,202 @@ def main() -> None:
 
     cal_results = st.session_state.get("cal_results")
     if cal_results:
-        # Summary table
-        cal_summary = []
+        # ── Build unified summary data ──
+        cal_games_list = []
         for cr in cal_results:
             if isinstance(cr, dict):
-                cal_summary.append({
-                    "Game": cr.get("game_name", cr.get("game_id", "N/A")),
-                    "Sales": f"{cr.get('computed', {}).get('sales', 0):,.0f}",
-                    "Quality": f"{cr.get('computed', {}).get('quality_score', 0):.2f}",
-                    "CL": f"{cr.get('computed', {}).get('cl_score', 0):.3f}",
-                    "User Pool": f"{cr.get('computed', {}).get('user_pool', 0):,.0f}",
-                    "Sales Δ": f"{cr.get('deviation', {}).get('sales_pct', 0):+.1f}%",
-                    "Quality Δ": f"{cr.get('deviation', {}).get('quality_pct', 0):+.1f}%",
-                    "CL Δ": f"{cr.get('deviation', {}).get('cl_pct', 0):+.1f}%",
-                    "Pool Δ": f"{cr.get('deviation', {}).get('pool_pct', 0):+.1f}%",
+                dev = cr.get("deviation", {})
+                comp = cr.get("computed", {})
+                cal_games_list.append({
+                    "game_name": cr.get("game_name", cr.get("game_id", "N/A")),
+                    "game_id": cr.get("game_id", ""),
+                    "sales": comp.get("sales", 0),
+                    "quality_score": comp.get("quality_score", 0),
+                    "cl_score": comp.get("cl_score", 0),
+                    "user_pool": comp.get("user_pool", 0),
+                    "sales_pct": dev.get("sales_pct", 0),
+                    "quality_pct": dev.get("quality_pct", 0),
+                    "cl_pct": dev.get("cl_pct", 0),
+                    "pool_pct": dev.get("pool_pct", 0),
                 })
             else:
-                cal_summary.append({
-                    "Game": cr.game_name,
-                    "Sales": f"{cr.computed['sales']:,.0f}",
-                    "Quality": f"{cr.computed['quality_score']:.2f}",
-                    "CL": f"{cr.computed['cl_score']:.3f}",
-                    "User Pool": f"{cr.computed['user_pool']:,.0f}",
-                    "Sales Δ": f"{cr.deviation.get('sales_pct', 0):+.1f}%",
-                    "Quality Δ": f"{cr.deviation.get('quality_pct', 0):+.1f}%",
-                    "CL Δ": f"{cr.deviation.get('cl_pct', 0):+.1f}%",
-                    "Pool Δ": f"{cr.deviation.get('pool_pct', 0):+.1f}%",
+                cal_games_list.append({
+                    "game_name": cr.game_name,
+                    "game_id": cr.game_id,
+                    "sales": cr.computed.get("sales", 0),
+                    "quality_score": cr.computed.get("quality_score", 0),
+                    "cl_score": cr.computed.get("cl_score", 0),
+                    "user_pool": cr.computed.get("user_pool", 0),
+                    "sales_pct": cr.deviation.get("sales_pct", 0),
+                    "quality_pct": cr.deviation.get("quality_pct", 0),
+                    "cl_pct": cr.deviation.get("cl_pct", 0),
+                    "pool_pct": cr.deviation.get("pool_pct", 0),
                 })
 
-        if cal_summary:
-            st.dataframe(pd.DataFrame(cal_summary), use_container_width=True, hide_index=True)
+        if cal_games_list:
+            # ── 1. Summary table with deviation color coding ──
+            st.subheader("📊 校准汇总")
+            summary_df = pd.DataFrame(cal_games_list)
+            display_cols = ["game_name", "sales", "quality_score", "cl_score", "user_pool",
+                           "sales_pct", "quality_pct", "cl_pct", "pool_pct"]
+            df_display = summary_df[display_cols].copy()
+            df_display = df_display.rename(columns={
+                "game_name": "游戏", "sales": "销量", "quality_score": "质量",
+                "cl_score": "CL", "user_pool": "用户池",
+                "sales_pct": "销量偏差%", "quality_pct": "质量偏差%",
+                "cl_pct": "CL偏差%", "pool_pct": "池偏差%"
+            })
+            df_display["销量"] = df_display["销量"].map("{:,.0f}".format)
+            df_display["用户池"] = df_display["用户池"].map("{:,.0f}".format)
+            df_display["质量"] = df_display["质量"].map("{:.2f}".format)
+            df_display["CL"] = df_display["CL"].map("{:.3f}".format)
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
 
-            # Highlight high deviation
+            # Deviation legend
             st.caption("🟢 偏差 < 20% | 🟡 偏差 20-50% | 🔴 偏差 > 50%")
 
-            # Visual deviation chart (Webber 2026/06/12 enhancement)
+            # ── 2. 多维偏差可视化 (4维雷达对比 + 独立偏差进度条) ──
             st.markdown("---")
-            st.subheader("📊 偏差可视化")
-            cal_chart_data = []
-            for s in cal_summary:
-                sales_delta = float(s.get("Sales Δ", "0%").replace("+", "").replace("%", ""))
-                cal_chart_data.append({
-                    "Game": s.get("Game", ""),
-                    "Sales Deviation %": sales_delta,
-                })
-            df_chart = pd.DataFrame(cal_chart_data)
-            if not df_chart.empty:
-                st.bar_chart(df_chart.set_index("Game"), horizontal=True, y_min=-50, y_max=50)
+            st.subheader("📈 多维偏差可视化")
+
+            # 2a. 四维偏差水平条形图 (Sales/Quality/CL/Pool 四轴)
+            with st.expander("四维偏差对比图", expanded=True):
+                multi_dev_data = []
+                for g in cal_games_list:
+                    for metric, dev_key in [
+                        ("销量", "sales_pct"), ("质量", "quality_pct"),
+                        ("CL", "cl_pct"), ("用户池", "pool_pct"),
+                    ]:
+                        multi_dev_data.append({
+                            "游戏": g["game_name"],
+                            "指标": metric,
+                            "偏差 %": g[dev_key],
+                        })
+                df_multi = pd.DataFrame(multi_dev_data)
+                # Color encode: positive = orange-ish, negative = blue-ish
+                st.bar_chart(
+                    df_multi.set_index(["游戏", "指标"]).unstack()["偏差 %"],
+                    horizontal=True,
+                    y_min=-50,
+                    y_max=50,
+                )
                 st.caption("蓝色柱 = 负偏差（模型低估），橙色柱 = 正偏差（模型高估）。理想值为 0%。")
 
-            # Per-game detailed view
+            # 2b. 各维度独立偏差进度条
+            with st.expander("逐维度偏差进度条", expanded=False):
+                col_prog1, col_prog2 = st.columns(2)
+                for i, g in enumerate(cal_games_list):
+                    col = col_prog1 if i % 2 == 0 else col_prog2
+                    with col:
+                        st.markdown(f"**{g['game_name']}**")
+                        for label, pct_key in [("销量", "sales_pct"), ("质量", "quality_pct"), ("CL", "cl_pct"), ("用户池", "pool_pct")]:
+                            pct_val = g[pct_key]
+                            pct_abs = abs(pct_val)
+                            if pct_abs < 20:
+                                color = "🟢"
+                            elif pct_abs < 50:
+                                color = "🟡"
+                            else:
+                                color = "🔴"
+                            bar_width = min(pct_abs / 100 * 100, 100)
+                            st.progress(bar_width / 100, text=f"{color} {label} 偏差: {pct_val:+.1f}%")
+
+            # ── 3. 逐游戏结构化详情卡片 ──
             st.markdown("---")
-            st.subheader("📋 逐游戏详情")
-            game_names = [s.get("Game", s.get("game_name", "")) for s in cal_summary]
+            st.subheader("🔍 逐游戏详情")
+
+            game_names = [g["game_name"] for g in cal_games_list]
             selected_game = st.selectbox("选择游戏查看详情", game_names)
             if selected_game:
-                idx = game_names.index(selected_game)
-                cr = cal_results[idx] if isinstance(cal_results, list) else None
-                if cr:
-                    if isinstance(cr, dict):
-                        st.markdown(f"**游戏**: {cr.get('game_name', 'N/A')}")
-                        st.markdown(f"**ID**: {cr.get('game_id', 'N/A')}")
-                        st.json(cr.get("computed", {}))
-                        st.json(cr.get("deviation", {}))
-                    else:
-                        st.markdown(f"**游戏**: {cr.game_name}")
-                        st.markdown(f"**ID**: {cr.game_id}")
-                        st.json(cr.computed)
-                        st.json(cr.deviation)
+                game_data = next((g for g in cal_games_list if g["game_name"] == selected_game), None)
+                if game_data:
+                    with st.container():
+                        # Header row
+                        col_det1, col_det2, col_det3 = st.columns([1, 1, 1])
+                        with col_det1:
+                            st.metric("销量预测", f"{game_data['sales']:,.0f}")
+                        with col_det2:
+                            st.metric("质量评分", f"{game_data['quality_score']:.2f}")
+                        with col_det3:
+                            st.metric("CL 分数", f"{game_data['cl_score']:.3f}")
+
+                        # User pool metric
+                        st.metric("用户池规模", f"{game_data['user_pool']:,.0f}")
+
+                        st.markdown("---")
+                        # 4维度偏差卡片
+                        st.markdown("### 偏差分析")
+                        dev_cols = st.columns(4)
+                        for j, (label, pct_key, color_map) in enumerate([
+                            ("销量", "sales_pct", {"good": "🟢", "warn": "🟡", "bad": "🔴"}),
+                            ("质量", "quality_pct", {"good": "🟢", "warn": "🟡", "bad": "🔴"}),
+                            ("CL", "cl_pct", {"good": "🟢", "warn": "🟡", "bad": "🔴"}),
+                            ("用户池", "pool_pct", {"good": "🟢", "warn": "🟡", "bad": "🔴"}),
+                        ]):
+                            with dev_cols[j]:
+                                pct_val = game_data[pct_key]
+                                pct_abs = abs(pct_val)
+                                if pct_abs < 20:
+                                    icon = color_map["good"]
+                                    badge_color = "rgba(46, 125, 50, 0.12)"
+                                elif pct_abs < 50:
+                                    icon = color_map["warn"]
+                                    badge_color = "rgba(255, 152, 0, 0.12)"
+                                else:
+                                    icon = color_map["bad"]
+                                    badge_color = "rgba(244, 67, 54, 0.12)"
+                                st.markdown(
+                                    f'<div style="background:{badge_color};border-radius:8px;padding:10px;margin-bottom:6px;">'
+                                    f'<div style="font-size:13px;font-weight:600;margin-bottom:4px;">{icon} {label} 偏差</div>'
+                                    f'<div style="font-size:22px;font-weight:700;">{pct_val:+.1f}%</div></div>',
+                                    unsafe_allow_html=True,
+                                )
+
+                    # ── 4. 原始数据（JSON） ──
+                    st.markdown("---")
+                    with st.expander("查看原始计算数据 (JSON)", expanded=False):
+                        st.json({
+                            "computed": {
+                                "sales": game_data["sales"],
+                                "quality_score": game_data["quality_score"],
+                                "cl_score": game_data["cl_score"],
+                                "user_pool": game_data["user_pool"],
+                            },
+                            "deviation": {
+                                "sales_pct": game_data["sales_pct"],
+                                "quality_pct": game_data["quality_pct"],
+                                "cl_pct": game_data["cl_pct"],
+                                "pool_pct": game_data["pool_pct"],
+                            },
+                        })
+
+            # ── 5. 校准结果导出 ──
+            st.markdown("---")
+            st.subheader("💾 导出校准结果")
+            cal_export_btn = st.button("📄 导出校准结果 (CSV)", use_container_width=True, type="primary")
+            if cal_export_btn:
+                csv_buffer = io.StringIO()
+                writer = csv.writer(csv_buffer)
+                writer.writerow(["游戏", "销量", "质量评分", "CL", "用户池", "销量偏差%", "质量偏差%", "CL偏差%", "池偏差%"])
+                for g in cal_games_list:
+                    writer.writerow([
+                        g["game_name"],
+                        int(g["sales"]),
+                        f"{g['quality_score']:.2f}",
+                        f"{g['cl_score']:.3f}",
+                        int(g["user_pool"]),
+                        f"{g['sales_pct']:+.1f}%",
+                        f"{g['quality_pct']:+.1f}%",
+                        f"{g['cl_pct']:+.1f}%",
+                        f"{g['pool_pct']:+.1f}%",
+                    ])
+                st.download_button(
+                    label="✅ 下载 CSV 文件",
+                    data=csv_buffer.getvalue(),
+                    file_name=f"calibration_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
 
     if cal_results is None and not st.session_state.get("cal_loading"):
         st.info("点击「运行校准计算」按钮，对所有种子游戏进行校准分析。结果将展示计算值与预期范围的偏差。")
