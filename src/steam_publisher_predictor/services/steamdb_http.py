@@ -1,3 +1,4 @@
+# Webber 2026/06/13 迭代: SteamDB HTTP 适配器增强 — 重试间隔 + 速率限制检测 + 超时配置
 """Lightweight SteamDB HTTP-only adapter.
 
 Parses SteamDB app charts page without Playwright.
@@ -7,6 +8,7 @@ Falls back to ``SteamDbClient`` (Playwright) when HTTP parsing fails.
 from __future__ import annotations
 
 import re
+import time
 from typing import TYPE_CHECKING
 
 import httpx
@@ -18,6 +20,8 @@ if TYPE_CHECKING:
 
 STATS_URL = "https://steamdb.info/app/{app_id}/charts/"
 _HTTP_TIMEOUT_SEC = 20
+_HTTP_MAX_RETRIES = 3
+_HTTP_RETRY_DELAY_SEC = 2.0  # Delay between retries to avoid rate limiting
 
 
 class SteamDbHttpClientError(RuntimeError):
@@ -40,7 +44,8 @@ class SteamDbHttpClient:
             follow_redirects=True,
             trust_env=False,
         )
-        self._max_attempts = 2
+        self._max_attempts = _HTTP_MAX_RETRIES
+        self._retry_delay = _HTTP_RETRY_DELAY_SEC
 
     def fetch_stats(self, app_id: int) -> SteamDbStats:
         url = STATS_URL.format(app_id=app_id)
@@ -50,14 +55,35 @@ class SteamDbHttpClient:
 
     def _fetch_html(self, url: str) -> str:
         last_error: Exception | None = None
-        for _ in range(self._max_attempts):
+        for attempt in range(self._max_attempts):
             try:
                 response = self._client.get(url)
+                # Rate limit detection: 429 Too Many Requests
+                if response.status_code == 429:
+                    retry_after = response.headers.get("retry-after")
+                    delay = float(retry_after) if retry_after else self._retry_delay * (attempt + 1)
+                    time.sleep(delay)
+                    last_error = httpx.HTTPStatusError(
+                        f"Rate limited (429), retrying after {delay:.1f}s",
+                        request=response.request,
+                        response=response,
+                    )
+                    continue
                 response.raise_for_status()
                 return response.text
-            except (httpx.TimeoutException, httpx.RemoteProtocolError, httpx.ConnectError, httpx.HTTPStatusError) as exc:
+            except (httpx.TimeoutException, httpx.RemoteProtocolError, httpx.ConnectError) as exc:
                 last_error = exc
+                if attempt < self._max_attempts - 1:
+                    time.sleep(self._retry_delay * (attempt + 1))
                 continue
+            except httpx.HTTPStatusError as exc:
+                # 5xx server errors are retryable; 4xx are not
+                if 500 <= exc.response.status_code < 600 and attempt < self._max_attempts - 1:
+                    time.sleep(self._retry_delay * (attempt + 1))
+                    last_error = exc
+                    continue
+                last_error = exc
+                break
 
         if last_error is not None:
             raise SteamDbHttpClientError(f"SteamDB HTTP request failed after retries: {last_error}") from last_error

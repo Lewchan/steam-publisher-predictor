@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from dataclasses import asdict
 
 from fastapi import FastAPI, HTTPException
@@ -227,27 +229,156 @@ def create_app() -> FastAPI:
 
     @app.get("/api/steamdb_batch")
     def get_steamdb_batch(app_ids: str) -> dict[str, object]:
-        """Fetch SteamDB stats for multiple app_ids (comma-separated)."""
+        """Fetch SteamDB stats for multiple app_ids (comma-separated).
+
+        Enhanced error handling with categorized failures:
+        - "rate_limit": HTTP 429 or retry-after detected (transient)
+        - "not_found": Game does not exist on Steam (permanent)
+        - "blocked": SteamDB blocked IP/bot detection (transient)
+        - "timeout": Request timeout (transient)
+        - "network": DNS/connectivity failure (transient)
+        - "other": Unknown error
+        """
         ids = [int(a.strip()) for a in app_ids.split(",") if a.strip()]
-        results = []
-        errors = []
+        if not ids:
+            return {"results": [], "errors": [], "message": "No valid app_ids provided"}
+
+        results: list[dict] = []
+        errors: list[dict] = []
+        error_categories: dict[str, int] = {}
+
         try:
             from steam_publisher_predictor.services.steamdb_client import (
                 SteamDbClient,
                 SteamDbClientError,
             )
+            from steam_publisher_predictor.services.steamdb_http import (
+                SteamDbHttpClientError,
+            )
+            import httpx
+
             db_client = SteamDbClient()
-            for aid in ids:
+
+            for idx, aid in enumerate(ids):
+                # Add inter-request delay for batch calls to avoid rate limiting
+                if idx > 0:
+                    time.sleep(2.0)
+
                 try:
                     stats = db_client.fetch_stats(aid)
-                    results.append({"app_id": aid, "stats": asdict(stats)})
+                    if stats.has_data:
+                        results.append({
+                            "app_id": aid,
+                            "stats": {
+                                "current_players": stats.current_players,
+                                "peak_24h": stats.peak_24h,
+                                "all_time_peak": stats.all_time_peak,
+                                "followers": stats.followers,
+                                "reviews": stats.reviews,
+                                "steamdb_rating": stats.steamdb_rating,
+                                "positive_reviews": stats.positive_reviews,
+                                "negative_reviews": stats.negative_reviews,
+                                "daily_active_users_rank": stats.daily_active_users_rank,
+                                "top_sellers_rank": stats.top_sellers_rank,
+                                "wishlist_activity_rank": stats.wishlist_activity_rank,
+                                "last_30_days_peak": stats.last_30_days_peak,
+                            },
+                        })
+                    else:
+                        error_categories.setdefault("no_data", 0)
+                        error_categories["no_data"] += 1
+                        errors.append({
+                            "app_id": aid,
+                            "error": "SteamDB page has no chart data (game may be too new)",
+                            "error_category": "no_data",
+                            "transient": True,
+                        })
+                except SteamDbHttpClientError as exc:
+                    msg = str(exc).lower()
+                    if "banned" in msg or "blocked" in msg:
+                        cat = "blocked"
+                    elif "bot" in msg or "cloudflare" in msg or "challenge" in msg:
+                        cat = "blocked"
+                    else:
+                        cat = "other"
+                    error_categories.setdefault(cat, 0)
+                    error_categories[cat] += 1
+                    errors.append({
+                        "app_id": aid,
+                        "error": str(exc),
+                        "error_category": cat,
+                        "transient": cat in ("blocked",),
+                    })
                 except SteamDbClientError as exc:
-                    errors.append({"app_id": aid, "error": str(exc)})
+                    msg = str(exc).lower()
+                    if "banned" in msg or "blocked" in msg or "bot" in msg:
+                        cat = "blocked"
+                    elif "timeout" in msg:
+                        cat = "timeout"
+                    else:
+                        cat = "other"
+                    error_categories.setdefault(cat, 0)
+                    error_categories[cat] += 1
+                    errors.append({
+                        "app_id": aid,
+                        "error": str(exc),
+                        "error_category": cat,
+                        "transient": cat in ("blocked", "timeout"),
+                    })
+                except httpx.HTTPStatusError as exc:
+                    cat = "rate_limit" if exc.response.status_code == 429 else "network"
+                    error_categories.setdefault(cat, 0)
+                    error_categories[cat] += 1
+                    errors.append({
+                        "app_id": aid,
+                        "error": f"HTTP {exc.response.status_code}: {exc.response.reason_phrase}",
+                        "error_category": cat,
+                        "transient": cat == "rate_limit",
+                    })
+                except httpx.ConnectError as exc:
+                    error_categories.setdefault("network", 0)
+                    error_categories["network"] += 1
+                    errors.append({
+                        "app_id": aid,
+                        "error": f"Network error: {exc}",
+                        "error_category": "network",
+                        "transient": True,
+                    })
+                except httpx.TimeoutException as exc:
+                    error_categories.setdefault("timeout", 0)
+                    error_categories["timeout"] += 1
+                    errors.append({
+                        "app_id": aid,
+                        "error": f"Request timeout: {exc}",
+                        "error_category": "timeout",
+                        "transient": True,
+                    })
                 except Exception as exc:
-                    errors.append({"app_id": aid, "error": str(exc)})
+                    error_categories.setdefault("other", 0)
+                    error_categories["other"] += 1
+                    errors.append({
+                        "app_id": aid,
+                        "error": f"Unexpected error: {exc}",
+                        "error_category": "other",
+                        "transient": False,
+                    })
+
         except Exception as exc:
             return {"results": results, "errors": errors, "message": f"Unexpected error: {exc}"}
-        return {"results": results, "errors": errors}
+
+        summary = {
+            "total_requested": len(ids),
+            "successful": len(results),
+            "failed": len(errors),
+            "categories": error_categories,
+        }
+
+        return {
+            "results": results,
+            "errors": errors,
+            "summary": summary,
+            "error_categories": error_categories,
+        }
 
     # ── Discussion Data API ──────────────────────────────────────────────
 
