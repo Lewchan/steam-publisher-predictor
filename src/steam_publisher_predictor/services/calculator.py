@@ -73,7 +73,10 @@ def calculate_sales(
     cl_score = min(cfg.cl_cap, max(0.0, cl_raw))
 
     base_conversion = manual_inputs.exposure_base * manual_inputs.intent_base * manual_inputs.purchase_base
-    sales = user_pool.estimated_user_pool * base_conversion * (1 + cl_score) ** 3
+    # Webber 2026/06/13: Use cfg.cl_k2 for the CL exponent so scenario calibrations
+    #   (conservative/optimistic) can meaningfully change the sales curve shape.
+    cl_exp = cfg.cl_k2
+    sales = user_pool.estimated_user_pool * base_conversion * (1 + cl_score) ** cl_exp
 
     annual_long_tail_sales = None
     if manual_inputs.peak_dau > 0 and manual_inputs.median_line > 0:

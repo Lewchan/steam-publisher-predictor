@@ -118,3 +118,100 @@ def test_scenario_quality_differs_across_presets(sample_game):
     # Quality differs because different manual inputs produce different quality scores
     # Note: quality also depends on scraped data, so this checks the analyst adjustment effect
     assert cons_q != opt_q or True  # May differ due to analyst_adjustment
+
+
+def test_scenario_k2_affects_sales_curve():
+    """Verify that cl_k2 from ScenarioCalibration actually changes the sales exponent.
+
+    The conservative scenario uses cl_k2=1.0 while optimistic uses cl_k2=3.0.
+    With identical inputs, conservative should produce significantly lower sales
+    than optimistic due to the smaller exponent.
+    """
+    from steam_publisher_predictor.models import SteamGame, ManualInputs
+    from steam_publisher_predictor.services.calculator import (
+        calculate_sales,
+        calculate_sales_with_scenario,
+        SCENARIO_CONFIGS,
+    )
+    from steam_publisher_predictor.settings import CalibrationConfig
+
+    game = SteamGame(
+        app_id=42,
+        name="Test Game",
+        url="https://store.steampowered.com/app/42/",
+        genres=["Indie"],
+        steam_tags=["Indie"],
+        categories=["Single-player"],
+        supported_languages=["English"],
+        price_usd=19.99,
+        review_count=5000,
+        review_score=85.0,
+        metacritic_score=70,
+    )
+
+    manual_inputs = ManualInputs(
+        art_base=5.0,
+        gameplay_depth=5.0,
+        scope=5.0,
+        narrative=5.0,
+        ip_factor=0.2,
+        influencer_factor=0.2,
+        exposure_base=0.2,
+        intent_base=0.25,
+        purchase_base=0.3,
+    )
+
+    # Conservative: cl_k2=1.0, cl_cap=1.5
+    cons_result = calculate_sales_with_scenario(game, manual_inputs, scenario="conservative")
+    # Optimistic: cl_k2=3.0, cl_cap=4.0
+    opt_result = calculate_sales_with_scenario(game, manual_inputs, scenario="optimistic")
+    # Baseline: cl_k2=2.0, cl_cap=3.0
+    base_result = calculate_sales_with_scenario(game, manual_inputs, scenario="baseline")
+
+    # Conservative should have lowest sales due to cl_k2=1.0 and cl_cap=1.5
+    assert cons_result.result.sales < base_result.result.sales
+    # Baseline should be less than optimistic due to cl_k2=3.0
+    assert base_result.result.sales < opt_result.result.sales
+
+
+def test_scenario_cfg_passed_through_calculate_sales():
+    """Verify that cfg.cl_k2 is actually used in the sales formula."""
+    from steam_publisher_predictor.models import SteamGame, ManualInputs
+    from steam_publisher_predictor.services.calculator import calculate_sales
+    from steam_publisher_predictor.settings import CalibrationConfig
+
+    game = SteamGame(
+        app_id=42,
+        name="Test Game",
+        url="https://store.steampowered.com/app/42/",
+        genres=["Indie"],
+        steam_tags=["Indie"],
+        categories=["Single-player"],
+        supported_languages=["English"],
+        price_usd=19.99,
+        review_count=5000,
+        review_score=85.0,
+        metacritic_score=70,
+    )
+
+    manual_inputs = ManualInputs(
+        art_base=5.0,
+        gameplay_depth=5.0,
+        scope=5.0,
+        narrative=5.0,
+        ip_factor=0.2,
+        influencer_factor=0.2,
+        exposure_base=0.2,
+        intent_base=0.25,
+        purchase_base=0.3,
+    )
+
+    cfg_default = CalibrationConfig()
+    cfg_k1 = CalibrationConfig(**{**vars(cfg_default), "cl_k2": 1.0})
+    cfg_k3 = CalibrationConfig(**{**vars(cfg_default), "cl_k2": 3.0})
+
+    result_k1 = calculate_sales(game, manual_inputs, cfg=cfg_k1)
+    result_k3 = calculate_sales(game, manual_inputs, cfg=cfg_k3)
+
+    # Higher cl_k2 should produce higher sales (exponent effect)
+    assert result_k3.result.sales > result_k1.result.sales

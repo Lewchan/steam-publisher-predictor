@@ -671,7 +671,10 @@ def main() -> None:
         scenario_results = {}
         for sname in selected:
             scenario = scenario_service.load_preset(sname)
-            sr = scenario_service.run_scenario(scenario, game)
+            # Webber 2026/06/13: Use calculate_sales_with_scenario to apply
+            #   scenario-specific calibrations (cl_cap, cl_k2).
+            scenario_key = sname.lower()
+            sr = scenario_service.run_scenario(scenario, game, scenario_cfg_name=scenario_key)
             scenario_results[sname] = sr
 
         if scenario_results:

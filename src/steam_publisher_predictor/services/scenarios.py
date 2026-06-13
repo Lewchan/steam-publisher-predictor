@@ -119,7 +119,21 @@ def load_preset(name: str) -> Scenario:
     return Scenario(name=name)
 
 
-def run_scenario(scenario: Scenario, game: SteamGame) -> SalesBreakdown:
+def run_scenario(
+    scenario: Scenario,
+    game: SteamGame,
+    scenario_cfg_name: str | None = None,
+) -> ScenarioResult:
+    """Run a scenario with optional scenario-specific calibration overrides.
+
+    Args:
+        scenario: Scenario definition with manual input values.
+        game: Fetched Steam game data.
+        scenario_cfg_name: Name of the scenario calibration config
+            (e.g. 'conservative', 'baseline', 'optimistic').
+            If provided, uses ``calculate_sales_with_scenario`` to apply
+            scenario-specific calibrations (cl_cap, cl_k2).
+    """
     manual_inputs = ManualInputs(
         art_base=scenario.art_base,
         gameplay_depth=scenario.gameplay_depth,
@@ -147,7 +161,14 @@ def run_scenario(scenario: Scenario, game: SteamGame) -> SalesBreakdown:
         complex_system=scenario.complex_system,
         linear_experience=scenario.linear_experience,
     )
-    result = calculate_sales(game, manual_inputs)
+
+    # Webber 2026/06/13: When a scenario calibration config name is provided,
+    #   use calculate_sales_with_scenario to apply scenario-specific calibrations
+    #   (cl_cap, cl_k2, quality_bias) on top of the manual inputs.
+    if scenario_cfg_name:
+        result = calculate_sales_with_scenario(game, manual_inputs, scenario=scenario_cfg_name)
+    else:
+        result = calculate_sales(game, manual_inputs)
     return ScenarioResult(scenario=scenario, result=result)
 
 
