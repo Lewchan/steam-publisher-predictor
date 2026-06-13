@@ -150,6 +150,40 @@ _SEED_RECORDS: list[dict] = [
         "sao_anchor": 500_000_000,
         "source_label": "official_release",
     },
+    {
+        "game_name": "VS (Versus Mode)",
+        "app_id": 0,
+        "release_date": "2025-06-01",
+        "genre_cluster": "Action / Indie / Competitive",
+        "quality_score": 7.5,
+        "quality_confidence": 0.60,
+        "user_pool": 2_000_000,
+        "cl_score": 1.75,
+        "sales": 120_000,
+        "annual_long_tail_sales": 20_000,
+        "steam_score": 88.0,
+        "discussion_strength": 4.5,
+        "analyst_quality_score": 7.0,
+        "sao_anchor": 200_000,
+        "source_label": "calibration_seed",
+    },
+    {
+        "game_name": "完蛋！我被美女包围了",
+        "app_id": 2089440,
+        "release_date": "2023-10-20",
+        "genre_cluster": "Visual Novel / Romance / Drama",
+        "quality_score": 6.0,
+        "quality_confidence": 0.65,
+        "user_pool": 18_000_000,
+        "cl_score": 1.40,
+        "sales": 1_200_000,
+        "annual_long_tail_sales": 80_000,
+        "steam_score": 85.0,
+        "discussion_strength": 9.0,
+        "analyst_quality_score": 5.5,
+        "sao_anchor": 2_500_000,
+        "source_label": "calibration_seed",
+    },
 ]
 
 
@@ -217,11 +251,12 @@ class BenchmarkComparisonRow:
 
     benchmark_game: str
     quality_score: float
-    quality_confidence: str
+    quality_confidence: float  # fraction (0.0-1.0), not formatted string
     cl_score: float
     user_pool: int
     sales: int
     sao_anchor: float | None
+    annual_long_tail_sales: float | None
     # Differences vs current result
     quality_diff: float
     cl_diff: float
@@ -250,11 +285,12 @@ def compare_vs_benchmarks(
             BenchmarkComparisonRow(
                 benchmark_game=rec.game_name,
                 quality_score=rec.quality_score,
-                quality_confidence=f"{rec.quality_confidence:.0%}",
+                quality_confidence=rec.quality_confidence,
                 cl_score=rec.cl_score,
                 user_pool=rec.user_pool,
                 sales=rec.sales,
                 sao_anchor=rec.sao_anchor,
+                annual_long_tail_sales=rec.annual_long_tail_sales,
                 quality_diff=round(current_quality - rec.quality_score, 2),
                 cl_diff=round(current_cl - rec.cl_score, 2),
                 pool_diff=round(current_pool - rec.user_pool, 0),

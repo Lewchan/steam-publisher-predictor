@@ -4,6 +4,8 @@ Quinn-QA 2026/06/11 迭代执行
 """
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from steam_publisher_predictor.services import steamdb_client
