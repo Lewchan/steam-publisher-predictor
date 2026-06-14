@@ -485,9 +485,21 @@
       #cal-cl-k2,
       #cal-low-confidence,
       #cal-medium-confidence,
-      #cal-missing-source-threshold {
+      #cal-missing-source-threshold,
+      #mi-art_base,
+      #mi-gameplay_depth,
+      #mi-scope,
+      #mi-narrative,
+      #mi-ip_factor,
+      #mi-influencer_factor {
         font-size: 15px;
       }
+
+      /* Calibration trend viz compact */
+      .cal-scatter-chart { height: 200px !important; }
+      .cal-histogram { height: 60px !important; }
+      .cal-scatter-point { width: 7px !important; height: 7px !important; }
+      .cal-scatter-label { font-size: 8px !important; }
     }
 
     @media (max-width: 560px) {
@@ -881,7 +893,125 @@
       background: var(--accent-2);
     }
 
-    /* ── End Calibration page styles ───────────────────────────────── */
+    /* ── Calibration deviation trend visualization ──────────────────── */
+    .cal-trend-container {
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.4);
+      border: 1px solid var(--line);
+    }
+    .cal-trend-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--accent);
+    }
+    .cal-scatter-chart {
+      position: relative;
+      width: 100%;
+      height: 280px;
+      margin-bottom: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.3);
+    }
+    .cal-scatter-axis-label {
+      position: absolute;
+      font-size: 11px;
+      font-family: "IBM Plex Mono", monospace;
+      color: var(--muted);
+    }
+    .cal-scatter-x-label { bottom: 2px; right: 8px; }
+    .cal-scatter-y-label { top: 8px; left: 4px; transform: rotate(-90deg); transform-origin: 0 0; }
+    .cal-scatter-point {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      transition: transform 120ms ease;
+    }
+    .cal-scatter-point:hover {
+      transform: translate(-50%, -50%) scale(1.5);
+      z-index: 10;
+    }
+    .cal-scatter-point.over { background: var(--accent); }
+    .cal-scatter-point.under { background: var(--accent-2); }
+    .cal-scatter-point.on-target { background: #d4a017; }
+    .cal-scatter-label {
+      position: absolute;
+      font-size: 9px;
+      color: var(--muted);
+      transform: translate(-50%, -100%);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .cal-scatter-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 1px;
+      border-top: 1px dashed rgba(16,34,24,0.2);
+    }
+    /* Histogram styles */
+    .cal-histogram {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 100px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 8px;
+    }
+    .cal-hist-bar {
+      flex: 1;
+      min-width: 20px;
+      border-radius: 3px 3px 0 0;
+      transition: height 300ms ease;
+      cursor: pointer;
+      position: relative;
+    }
+    .cal-hist-bar:hover {
+      opacity: 0.8;
+    }
+    .cal-hist-bar.positive { background: var(--accent); }
+    .cal-hist-bar.negative { background: var(--accent-2); }
+    .cal-hist-bar.neutral { background: #d4a017; }
+    .cal-hist-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", monospace;
+    }
+    /* Consistency alert */
+    .cal-consistency-alert {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-top: 12px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .cal-consistency-alert.systematic-high {
+      background: rgba(31,122,82,0.1);
+      border: 1px solid rgba(31,122,82,0.3);
+      color: var(--accent);
+    }
+    .cal-consistency-alert.systematic-low {
+      background: rgba(213,91,45,0.1);
+      border: 1px solid rgba(213,91,45,0.3);
+      color: var(--accent-2);
+    }
+    .cal-consistency-alert.balanced {
+      background: rgba(212,160,23,0.1);
+      border: 1px solid rgba(212,160,23,0.3);
+      color: #8a6d14;
+    }
+    /* ── End Calibration deviation trend visualization ───────────────── */
 
     /* ── Discussion data styles ──────────────────────────────────────── */
     .discussion-source-card {
@@ -1572,6 +1702,34 @@
         <div id="cal-results-container" style="margin-top:18px;">
           <div id="cal-summary-cards" class="results-grid" style="display:none;"></div>
           <div id="cal-deviation-table" style="overflow-x:auto;"></div>
+          <!-- Calibration deviation trend visualization (Webber 2026/06/14) -->
+          <div id="cal-trend-viz" class="cal-trend-container" style="display:none;">
+            <div class="cal-trend-title">📊 标杆偏差趋势分析</div>
+            <!-- Scatter: expected vs computed sales -->
+            <div style="margin-bottom:16px;">
+              <div style="font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:8px;">期望销量 vs 预测销量 (散点图)</div>
+              <div class="cal-scatter-chart" id="cal-scatter-sales">
+                <div class="cal-scatter-axis-label cal-scatter-x-label">期望销量</div>
+                <div class="cal-scatter-axis-label cal-scatter-y-label">预测销量</div>
+              </div>
+              <div style="display:flex;gap:16px;font-size:12px;margin-top:6px;">
+                <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent);"></span> 预测偏高</span>
+                <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent-2);"></span> 预测偏低</span>
+                <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#d4a017;"></span> 接近预期</span>
+              </div>
+            </div>
+            <!-- Quality deviation histogram -->
+            <div style="margin-bottom:16px;">
+              <div style="font-size:12px;font-family:IBM Plex Mono,monospace;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent-2);margin-bottom:8px;">质量偏差分布 (直方图)</div>
+              <div id="cal-hist-quality" class="cal-histogram"></div>
+              <div id="cal-hist-quality-label" class="cal-hist-label">
+                <span>← 预测偏低</span>
+                <span>预测偏高 →</span>
+              </div>
+            </div>
+            <!-- Consistency detection -->
+            <div id="cal-consistency-result"></div>
+          </div>
         </div>
       </article>
     </section>
@@ -4588,6 +4746,7 @@
       if (calResults.length === 0) {
         calDeviationTable.innerHTML = '<p style="color:var(--muted);">尚未运行校准计算。点击「对所有标杆运行计算」开始。</p>';
         calSummaryCards.style.display = "none";
+        calTrendViz.style.display = "none";
         return;
       }
 
@@ -4617,6 +4776,9 @@
 
       // Deviation table
       showDeviationTable();
+
+      // Trend visualization (Webber 2026/06/14)
+      renderCalTrendViz();
     }
 
     function showDeviationTable() {
@@ -4705,6 +4867,229 @@
 
     runCalAllBtn.addEventListener("click", runCalAll);
     if (saveCalResultsBtn) saveCalResultsBtn.addEventListener("click", saveCalResultsToBackend);
+
+    // ── Calibration Trend Visualization (Webber 2026/06/14) ───────────
+    const calTrendViz = document.getElementById("cal-trend-viz");
+
+    /**
+     * Render calibration deviation trend analysis:
+     * 1. Scatter plot: expected vs computed sales
+     * 2. Histogram: quality deviation distribution
+     * 3. Consistency detection: systematic bias identification
+     */
+    function renderCalTrendViz() {
+      if (!calTrendViz || calResults.length < 2) {
+        calTrendViz.style.display = "none";
+        return;
+      }
+
+      calTrendViz.style.display = "block";
+
+      // 1. Scatter plot: expected vs computed sales
+      renderCalScatterPlot();
+
+      // 2. Quality deviation histogram
+      renderCalHistogram();
+
+      // 3. Consistency detection
+      renderCalConsistencyAlert();
+    }
+
+    /**
+     * Render scatter plot of expected vs computed sales.
+     * Points above diagonal = overestimation, below = underestimation.
+     */
+    function renderCalScatterPlot() {
+      const container = document.getElementById("cal-scatter-sales");
+      if (!container) return;
+
+      // Clear previous points and labels (keep axis labels)
+      const existingPoints = container.querySelectorAll(".cal-scatter-point, .cal-scatter-label, .cal-scatter-line");
+      existingPoints.forEach(el => el.remove());
+
+      const salesData = calResults.filter(r => {
+        const range = getCalGameExpectedRange(r.game_id, "sales");
+        return range && range[0] > 0 && range[1] > 0 && r.computed.sales > 0;
+      });
+
+      if (salesData.length === 0) return;
+
+      // Calculate ranges
+      const allExpected = salesData.map(r => {
+        const range = getCalGameExpectedRange(r.game_id, "sales");
+        return (range[0] + range[1]) / 2;
+      });
+      const allComputed = salesData.map(r => r.computed.sales);
+      const maxExpected = Math.max(...allExpected, 1);
+      const maxComputed = Math.max(...allComputed, 1);
+      const chartMax = Math.max(maxExpected, maxComputed, 1);
+
+      // Draw diagonal reference line (y = x)
+      const diagLine = document.createElement("div");
+      diagLine.className = "cal-scatter-line";
+      diagLine.style.top = "0%";
+      diagLine.style.borderTop = "1px dashed rgba(16,34,24,0.15)";
+      container.appendChild(diagLine);
+
+      // Draw each point
+      salesData.forEach(r => {
+        const range = getCalGameExpectedRange(r.game_id, "sales");
+        const expected = (range[0] + range[1]) / 2;
+        const computed = r.computed.sales;
+
+        const xPct = (expected / chartMax) * 100;
+        const yPct = (computed / chartMax) * 100;
+
+        const point = document.createElement("div");
+        point.className = "cal-scatter-point";
+        const devPct = ((computed - expected) / expected) * 100;
+        if (Math.abs(devPct) <= 20) {
+          point.classList.add("on-target");
+        } else if (devPct > 0) {
+          point.classList.add("over");
+        } else {
+          point.classList.add("under");
+        }
+        point.style.left = xPct + "%";
+        point.style.top = yPct + "%";
+        point.title = `${r.game_name}: 期望=${formatNumber(expected)}, 预测=${formatNumber(computed)}, 偏差=${devPct >= 0 ? '+' : ''}${devPct.toFixed(1)}%`;
+
+        // Label
+        const label = document.createElement("div");
+        label.className = "cal-scatter-label";
+        label.style.left = xPct + "%";
+        label.style.top = (yPct - 3) + "%";
+        label.textContent = r.game_name.length > 8 ? r.game_name.substring(0, 7) + "…" : r.game_name;
+
+        container.appendChild(point);
+        container.appendChild(label);
+      });
+    }
+
+    /**
+     * Render histogram of quality deviation distribution.
+     * Bins by deviation percentage, colored by direction.
+     */
+    function renderCalHistogram() {
+      const histEl = document.getElementById("cal-hist-quality");
+      if (!histEl) return;
+      histEl.innerHTML = "";
+
+      const deviations = calResults.map(r => {
+        const game = calGames.find(g => g.id === r.game_id);
+        if (!game || !game.expected_quality_range) return null;
+        const mid = (game.expected_quality_range[0] + game.expected_quality_range[1]) / 2;
+        return ((r.computed.quality_score - mid) / mid) * 100;
+      }).filter(d => d !== null);
+
+      if (deviations.length === 0) return;
+
+      // Create bins: -60% to +60%, in 10% increments
+      const binSize = 10;
+      const binCount = 12; // -60 to +60
+      const bins = new Array(binCount).fill(0);
+      const binLabels = [];
+      for (let i = 0; i < binCount; i++) {
+        binLabels.push((i * binSize - 60) + "%");
+      }
+
+      deviations.forEach(d => {
+        const binIdx = Math.floor((d + 60) / binSize);
+        if (binIdx >= 0 && binIdx < binCount) bins[binIdx]++;
+      });
+
+      const maxBin = Math.max(...bins, 1);
+
+      bins.forEach((count, i) => {
+        const bar = document.createElement("div");
+        bar.className = "cal-hist-bar";
+        const devMid = i * binSize - 60 + binSize / 2;
+        if (devMid < -5) bar.classList.add("negative");
+        else if (devMid > 5) bar.classList.add("positive");
+        else bar.classList.add("neutral");
+        bar.style.height = (count / maxBin * 100) + "%";
+        bar.title = `${binLabels[i]}: ${count} 个标杆`;
+        histEl.appendChild(bar);
+      });
+    }
+
+    /**
+     * Detect systematic bias in calibration results.
+     * Returns alert HTML indicating over/under estimation trend.
+     */
+    function renderCalConsistencyAlert() {
+      const alertEl = document.getElementById("cal-consistency-result");
+      if (!alertEl) return;
+
+      const salesDevs = calResults.map(r => r.deviation.sales_pct);
+      const qualityDevs = calResults.map(r => r.deviation.quality_pct);
+      const clDevs = calResults.map(r => r.deviation.cl_pct);
+      const poolDevs = calResults.map(r => r.deviation.pool_pct);
+
+      const avgSalesDev = salesDevs.reduce((s, v) => s + v, 0) / salesDevs.length;
+      const avgQualityDev = qualityDevs.reduce((s, v) => s + v, 0) / qualityDevs.length;
+      const avgCLDev = clDevs.reduce((s, v) => s + v, 0) / clDevs.length;
+      const avgPoolDev = poolDevs.reduce((s, v) => s + v, 0) / poolDevs.length;
+
+      // Count over/under
+      const overCount = salesDevs.filter(d => d > 10).length;
+      const underCount = salesDevs.filter(d => d < -10).length;
+      const balancedCount = salesDevs.filter(d => Math.abs(d) <= 10).length;
+
+      let alertClass = "balanced";
+      let alertIcon = "⚖️";
+      let alertText = "";
+
+      if (avgSalesDev > 15) {
+        alertClass = "systematic-high";
+        alertIcon = "📈";
+        alertText = `模型系统性高估：平均偏差 +${avgSalesDev.toFixed(1)}%，${overCount}/${calResults.length} 个标杆预测偏高。建议下调 exposure_base 或 intent_base 参数。`;
+      } else if (avgSalesDev < -15) {
+        alertClass = "systematic-low";
+        alertIcon = "📉";
+        alertText = `模型系统性低估：平均偏差 ${avgSalesDev.toFixed(1)}%，${underCount}/${calResults.length} 个标杆预测偏低。建议上调 exposure_base 或 intent_base 参数。`;
+      } else {
+        alertClass = "balanced";
+        alertIcon = "✅";
+        alertText = `偏差分布均衡：${overCount} 高估 / ${balancedCount} 接近 / ${underCount} 低估。模型整体校准良好。`;
+      }
+
+      // Additional dimension alerts
+      let dimAlerts = "";
+      if (Math.abs(avgQualityDev) > 15) {
+        dimAlerts += `<div style="font-size:12px;color:var(--muted);margin-top:6px;">质量偏差均值: ${avgQualityDev >= 0 ? '+' : ''}${avgQualityDev.toFixed(1)}%</div>`;
+      }
+      if (Math.abs(avgCLDev) > 15) {
+        dimAlerts += `<div style="font-size:12px;color:var(--muted);margin-top:2px;">CL 偏差均值: ${avgCLDev >= 0 ? '+' : ''}${avgCLDev.toFixed(1)}%</div>`;
+      }
+      if (Math.abs(avgPoolDev) > 15) {
+        dimAlerts += `<div style="font-size:12px;color:var(--muted);margin-top:2px;">用户池偏差均值: ${avgPoolDev >= 0 ? '+' : ''}${avgPoolDev.toFixed(1)}%</div>`;
+      }
+
+      alertEl.innerHTML = `
+        <div class="cal-consistency-alert ${alertClass}">
+          <span style="font-size:20px;">${alertIcon}</span>
+          <span>${alertText}</span>
+        </div>
+        ${dimAlerts}
+      `;
+    }
+
+    /**
+     * Get expected range for a calibration game by field.
+     */
+    function getCalGameExpectedRange(gameId, field) {
+      const game = calGames.find(g => g.id === gameId);
+      if (!game) return null;
+      const fieldMap = {
+        sales: "expected_sales_range",
+        quality: "expected_quality_range",
+        cl: "expected_cl_range",
+        pool: "expected_pool_range",
+      };
+      return game[fieldMap[field]] || null;
+    }
+    // ── End Calibration Trend Visualization ───────────────────────────
   </script>
 </body>
 </html>
