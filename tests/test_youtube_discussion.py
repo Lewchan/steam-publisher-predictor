@@ -127,6 +127,6 @@ def test_normalise_sentiment_positive():
     result = _normalise(items, source_type="youtube", game_name="Test")
     # like/(like+comment) = 900/1000 = 0.9
     # sentiment = (0.9 - 0.5) * 2 = 0.8
-    expected = 0.6471
+    expected = 0.8
     actual = result.avg_sentiment
     assert abs(actual - expected) < 0.01

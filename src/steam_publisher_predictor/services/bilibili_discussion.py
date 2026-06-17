@@ -118,7 +118,7 @@ class BilibiliSource(DiscussionSourceABC):
             "page_size": min(limit, 50),
         }
         last_error: Exception | None = None
-        for _ in range(self._max_attempts):
+        for attempt in range(self._max_attempts):
             try:
                 resp = self._client.get(_BILIBILI_SEARCH_URL, params=params)
                 resp.raise_for_status()
@@ -126,7 +126,10 @@ class BilibiliSource(DiscussionSourceABC):
                 return _parse_bilibili_search(data, limit)
             except Exception as exc:
                 last_error = exc
-                time.sleep(1)
+                if attempt < self._max_attempts - 1:
+                    time.sleep(1)
+        if last_error is not None:
+            raise last_error
         return []
 
     def _error_result(self, game_name: str, message: str) -> NormalizedDiscussionResult:
@@ -191,7 +194,7 @@ def _extract_video(data: dict) -> _VideoItem | None:
     if pubdate:
         try:
             pubdate = datetime.fromtimestamp(pubdate, tz=timezone.utc).strftime("%Y-%m-%d")
-        except (ValueError, OSError):
+        except (ValueError, OSError, TypeError):
             pubdate = ""
 
     return _VideoItem(

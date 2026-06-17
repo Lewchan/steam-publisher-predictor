@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -231,7 +232,7 @@ def run_calibration(
     return CalibrationResult(
         game_id=cal_game.id,
         game_name=cal_game.game_name,
-        manual_inputs={k: float(v) if isinstance(v, float) else v for k, v in mi.__dict__.items()},
+        manual_inputs={k: float(v) if isinstance(v, float) else v for k, v in dataclasses.asdict(mi).items()},
         computed={
             "sales": result.sales,
             "quality_score": result.quality.quality_score,

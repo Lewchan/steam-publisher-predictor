@@ -434,11 +434,11 @@ class TestRegisterDiscussionSource:
     def test_bilibili_registered_correctly(self):
         """TC-TI009-021: bilibili正确注册到DiscussionSourceABC"""
         from steam_publisher_predictor.services.discussion_source_base import (
-            _source_registry,
+            _DISCUSSION_REGISTRY,
         )
         # BilibiliSource 被装饰器注册
-        assert "bilibili" in _source_registry
-        assert _source_registry["bilibili"] is bili.BilibiliSource
+        assert "bilibili" in _DISCUSSION_REGISTRY
+        assert _DISCUSSION_REGISTRY["bilibili"] is bili.BilibiliSource
 
     def test_source_type_constant(self):
         """TC-TI009-021b: SOURCE_TYPE常量"""

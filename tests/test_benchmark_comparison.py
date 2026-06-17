@@ -89,7 +89,7 @@ def test_compare_vs_benchmarks_returns_correct_count() -> None:
     benchmarks = get_seed_records()
 
     rows = compare_vs_benchmarks(result, benchmarks)
-    assert len(rows) == 5
+    assert len(rows) == 7
     assert all(isinstance(r, BenchmarkComparisonRow) for r in rows)
 
 
@@ -179,7 +179,7 @@ def test_compare_vs_loaded_benchmark_file(tmp_path: Path) -> None:
     assert loaded is not None
 
     rows = compare_vs_benchmarks(result, loaded.records)
-    assert len(rows) == 5
+    assert len(rows) == 7
 
     # Verify Stardew Valley reference
     stardew = next(r for r in rows if r.benchmark_game == "Stardew Valley")

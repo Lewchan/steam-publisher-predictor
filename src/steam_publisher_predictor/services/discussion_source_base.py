@@ -37,11 +37,11 @@ class NormalizedDiscussionResult:
     has_controversial_content: bool = False
     fetch_time: str = ""
     raw_sample_count: int = 0
-    error_message: str = ""
+    error_message: str | None = None
 
     @property
     def is_valid(self) -> bool:
-        return bool(self.error_message) is False
+        return self.error_message is None or self.error_message == ""
 
 
 # ── Abstract base ─────────────────────────────────────────────────────────

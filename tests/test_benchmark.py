@@ -17,10 +17,19 @@ from steam_publisher_predictor.services.benchmark import (
 
 def test_seed_records_count() -> None:
     records = get_seed_records()
-    assert len(records) == 5
+    assert len(records) == 7
 
     names = {r.game_name for r in records}
-    assert names == {"Balatro", "Stardew Valley", "Palworld", "Warm Snow", "Minecraft"}
+    expected_names = {
+        "Balatro",
+        "Stardew Valley",
+        "Palworld",
+        "Warm Snow",
+        "Minecraft",
+        "VS (Versus Mode)",
+        "完蛋！我被美女包围了",
+    }
+    assert names == expected_names
 
 
 def test_seed_record_fields() -> None:
@@ -44,7 +53,7 @@ def test_save_and_load_round_trip(tmp_path: Path) -> None:
     loaded = load_benchmark_file(data_dir=tmp_path)
     assert loaded is not None
     assert loaded.version == "v0.1"
-    assert len(loaded.records) == 5
+    assert len(loaded.records) == 7
 
     first = loaded.records[0]
     assert first.game_name == "Balatro"
